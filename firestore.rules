@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role-Based Admin Authorization (Bootstrapped with runtime owner email + admins collection)
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'kunjrastogi62@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'preferredCategories', 'preferredLocations', 'createdAt', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 120 &&
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2000)) &&
+             (!('preferredCategories' in data) || (data.preferredCategories is list && data.preferredCategories.size() <= 50)) &&
+             (!('preferredLocations' in data) || (data.preferredLocations is list && data.preferredLocations.size() <= 50));
+    }
+
+    function isValidSavedOpportunity(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'company']) &&
+             data.keys().hasOnly(['id', 'userId', 'title', 'company', 'location', 'type', 'deadline', 'savedAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.title is string && data.title.size() <= 200 &&
+             data.company is string && data.company.size() <= 100 &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
+             (!('type' in data) || (data.type is string && data.type.size() <= 50)) &&
+             (!('deadline' in data) || (data.deadline is string && data.deadline.size() <= 50));
+    }
+
+    function isValidApplicationTracker(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'opportunityTitle', 'organization', 'status']) &&
+             data.keys().hasOnly(['id', 'userId', 'opportunityTitle', 'organization', 'status', 'appliedDate', 'notes', 'updatedAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.opportunityTitle is string && data.opportunityTitle.size() <= 200 &&
+             data.organization is string && data.organization.size() <= 100 &&
+             data.status is string && data.status.size() <= 30 &&
+             (!('appliedDate' in data) || (data.appliedDate is string && data.appliedDate.size() <= 30)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidVideoResource(data) {
+      return data.keys().hasAll(['id', 'videoUrl', 'videoId', 'title', 'category', 'status']) &&
+             data.keys().hasOnly(['id', 'videoUrl', 'videoId', 'title', 'description', 'category', 'thumbnailUrl', 'channelTitle', 'status', 'createdBy', 'createdAt', 'updatedAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.videoUrl is string && data.videoUrl.size() <= 500 &&
+             data.videoId is string && data.videoId.size() <= 32 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.category in ['Jobs', 'Internships', 'Scholarships', 'Coding', 'Career Guidance', 'Competitive Exams', 'Freelancing'] &&
+             data.status in ['published', 'draft'] &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 500)) &&
+             (!('channelTitle' in data) || (data.channelTitle is string && data.channelTitle.size() <= 100));
+    }
+
+    // Public test connection endpoint for boot health-check
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Video Resources Collection
+    // Public visitors can browse published videos without signing in
+    // Only verified administrators can create, update, or delete entries
+    match /video_resources/{videoId} {
+      allow get: if resource.data.status == 'published' || isAdmin();
+      allow list: if resource.data.status == 'published' || isAdmin();
+      allow create: if isAdmin() && isValidId(videoId) && isValidVideoResource(incoming());
+      allow update: if isAdmin() && isValidId(videoId) && isValidVideoResource(incoming());
+      allow delete: if isAdmin() && isValidId(videoId);
+    }
+
+    // Match rules for users collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming());
+      
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming()) &&
+                    incoming().uid == existing().uid &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'preferredCategories', 'preferredLocations', 'updatedAt']);
+                    
+      allow delete: if false;
+
+      // Subcollection: Saved Opportunities
+      match /saved_opportunities/{opportunityId} {
+        allow get: if isOwner(userId) && isValidId(opportunityId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(opportunityId) && isValidSavedOpportunity(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(opportunityId) && isValidSavedOpportunity(incoming(), userId) &&
+                      incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(opportunityId);
+      }
+
+      // Subcollection: Applications Tracker
+      match /applications/{applicationId} {
+        allow get: if isOwner(userId) && isValidId(applicationId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(applicationId) && isValidApplicationTracker(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(applicationId) && isValidApplicationTracker(incoming(), userId) &&
+                      incoming().userId == existing().userId &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'appliedDate', 'notes', 'updatedAt', 'opportunityTitle', 'organization']);
+        allow delete: if isOwner(userId) && isValidId(applicationId);
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "OpportunityHub",
+  "description": "A comprehensive career and scholarship opportunity platform featuring secure Firebase Authentication, protected dashboards, and application tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

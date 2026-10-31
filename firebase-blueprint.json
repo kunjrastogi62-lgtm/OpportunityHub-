@@ -1,0 +1,221 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile information and career preferences",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "User identifier matching Firebase Auth UID"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's full name",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address",
+          "maxLength": 120
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Avatar URL or null"
+        },
+        "preferredCategories": {
+          "type": "array",
+          "description": "Career interest categories"
+        },
+        "preferredLocations": {
+          "type": "array",
+          "description": "Preferred work locations"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["uid", "email"]
+    },
+    "SavedOpportunity": {
+      "title": "SavedOpportunity",
+      "description": "Opportunity bookmarked by user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique bookmark or opportunity identifier",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "User UID who saved this item"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the opportunity",
+          "maxLength": 200
+        },
+        "company": {
+          "type": "string",
+          "description": "Organization or company name",
+          "maxLength": 100
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the opportunity",
+          "maxLength": 100
+        },
+        "type": {
+          "type": "string",
+          "description": "Job, Internship, Fellowship, Grant, Scholarship",
+          "maxLength": 50
+        },
+        "deadline": {
+          "type": "string",
+          "description": "Application deadline",
+          "maxLength": 50
+        },
+        "savedAt": {
+          "type": "string",
+          "description": "Saved timestamp"
+        }
+      },
+      "required": ["id", "userId", "title", "company"]
+    },
+    "ApplicationTracker": {
+      "title": "ApplicationTracker",
+      "description": "Tracked job or opportunity application",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Application tracker record ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "User UID who applied"
+        },
+        "opportunityTitle": {
+          "type": "string",
+          "description": "Opportunity title",
+          "maxLength": 200
+        },
+        "organization": {
+          "type": "string",
+          "description": "Target company/organization",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "description": "Application stage (Applied, Interviewing, Offer, Rejected)",
+          "maxLength": 30
+        },
+        "appliedDate": {
+          "type": "string",
+          "description": "Date applied",
+          "maxLength": 30
+        },
+        "notes": {
+          "type": "string",
+          "description": "User's personal notes on the application",
+          "maxLength": 1000
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated timestamp"
+        }
+      },
+      "required": ["id", "userId", "opportunityTitle", "organization", "status"]
+    },
+    "VideoResource": {
+      "title": "VideoResource",
+      "description": "Curated YouTube career video resource entry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique video resource document ID",
+          "maxLength": 128
+        },
+        "videoUrl": {
+          "type": "string",
+          "description": "Full YouTube URL",
+          "maxLength": 500
+        },
+        "videoId": {
+          "type": "string",
+          "description": "Extracted YouTube 11-char video ID",
+          "maxLength": 32
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the video",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Short summary or description",
+          "maxLength": 1000
+        },
+        "category": {
+          "type": "string",
+          "description": "Category: Jobs, Internships, Scholarships, Coding, Career Guidance, Competitive Exams, Freelancing",
+          "maxLength": 50
+        },
+        "thumbnailUrl": {
+          "type": "string",
+          "description": "YouTube thumbnail URL",
+          "maxLength": 500
+        },
+        "channelTitle": {
+          "type": "string",
+          "description": "Creator or channel name",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "description": "Publication state: published or draft",
+          "enum": ["published", "draft"]
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "UID of the creator or admin who added it"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["id", "videoUrl", "videoId", "title", "category", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private profile document for each user"
+    },
+    "/users/{userId}/saved_opportunities/{opportunityId}": {
+      "schema": "SavedOpportunity",
+      "description": "User's personal saved opportunities"
+    },
+    "/users/{userId}/applications/{applicationId}": {
+      "schema": "ApplicationTracker",
+      "description": "User's personal tracked opportunity applications"
+    },
+    "/video_resources/{videoId}": {
+      "schema": "VideoResource",
+      "description": "Public video resources catalog managed by authorized administrators"
+    }
+  }
+}
