@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Bookmark,
@@ -14,6 +14,7 @@ import {
   Edit2,
   Calendar,
   Building,
+  Building2,
   MapPin,
   Tag,
   Shield,
@@ -22,7 +23,13 @@ import {
   AlertCircle,
   Copy,
   Mail,
-  Compass
+  Compass,
+  Globe,
+  Users,
+  Send,
+  Eye,
+  FileCheck,
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useUserData } from '../context/UserDataContext';
@@ -55,8 +62,32 @@ const AVAILABLE_LOCATIONS = [
   'Global (Virtual)'
 ];
 
+interface CompanyPosting {
+  id: string;
+  title: string;
+  category: 'Internship' | 'Full-Time' | 'Fellowship' | 'Scholarship' | 'Grant';
+  workType: 'Remote' | 'Hybrid' | 'On-site';
+  location: string;
+  stipendOrSalary: string;
+  deadline: string;
+  description: string;
+  status: 'active' | 'closed';
+  applicantsCount: number;
+  createdAt: string;
+}
+
+interface CompanyApplicant {
+  id: string;
+  applicantName: string;
+  applicantEmail: string;
+  opportunityTitle: string;
+  appliedDate: string;
+  status: 'Under Review' | 'Interviewing' | 'Offer' | 'Rejected';
+  portfolioUrl?: string;
+}
+
 interface DashboardViewProps {
-  initialSubTab?: 'overview' | 'saved' | 'applications' | 'preferences' | 'settings';
+  initialSubTab?: 'overview' | 'saved' | 'applications' | 'preferences' | 'settings' | 'post' | 'listings' | 'applicants';
   onNavigateToExplore: () => void;
   onSelectOpportunityForDetails?: (oppId: string) => void;
   onToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -68,7 +99,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectOpportunityForDetails,
   onToast,
 }) => {
-  const { currentUser, userProfile, updatePreferences, updateDisplayName, logout } = useAuth();
+  const { currentUser, userProfile, updatePreferences, updateDisplayName, updateCompanyProfile, logout } = useAuth();
   const {
     savedOpportunities,
     applications,
@@ -78,9 +109,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     deleteApplication,
   } = useUserData();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'saved' | 'applications' | 'preferences' | 'settings'>(
-    initialSubTab
-  );
+  const isCompany = userProfile?.accountType === 'company';
+
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'saved' | 'applications' | 'preferences' | 'settings' | 'post' | 'listings' | 'applicants'
+  >(initialSubTab);
+
+  // Sync activeTab when initialSubTab or role changes
+  useEffect(() => {
+    if (isCompany && (initialSubTab === 'saved' || initialSubTab === 'applications')) {
+      setActiveTab('overview');
+    } else if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab, isCompany]);
 
   // Profile Edit State
   const [displayNameInput, setDisplayNameInput] = useState(
@@ -88,7 +130,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
   const [savingName, setSavingName] = useState(false);
 
-  // Preferences State
+  // Company Profile State
+  const [companyNameInput, setCompanyNameInput] = useState(userProfile?.companyName || '');
+  const [companyWebsiteInput, setCompanyWebsiteInput] = useState(userProfile?.companyWebsite || '');
+  const [savingCompanyProfile, setSavingCompanyProfile] = useState(false);
+
+  useEffect(() => {
+    if (userProfile?.companyName) setCompanyNameInput(userProfile.companyName);
+    if (userProfile?.companyWebsite) setCompanyWebsiteInput(userProfile.companyWebsite);
+    if (userProfile?.displayName) setDisplayNameInput(userProfile.displayName);
+  }, [userProfile]);
+
+  // Candidate Preferences State
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     userProfile?.preferredCategories || ['Internship', 'Fellowship']
   );
@@ -97,7 +150,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
   const [savingPreferences, setSavingPreferences] = useState(false);
 
-  // Application Tracker Modal State
+  // Candidate Application Tracker Modal State
   const [addAppModalOpen, setAddAppModalOpen] = useState(false);
   const [newAppTitle, setNewAppTitle] = useState('');
   const [newAppCompany, setNewAppCompany] = useState('');
@@ -106,9 +159,77 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [newAppNotes, setNewAppNotes] = useState('');
   const [submittingApp, setSubmittingApp] = useState(false);
 
-  // Editing notes state
+  // Candidate Editing notes state
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editingNotesText, setEditingNotesText] = useState('');
+
+  // Company Postings and Applicants state
+  const [companyPostings, setCompanyPostings] = useState<CompanyPosting[]>([
+    {
+      id: 'post_1',
+      title: 'Full Stack Software Engineer (React & Cloud)',
+      category: 'Full-Time',
+      workType: 'Remote',
+      location: 'Global (Virtual)',
+      stipendOrSalary: '$110,000 - $140,000 / yr',
+      deadline: '2026-06-30',
+      description: 'Building modern user interfaces, Firestore state persistence, and high-scale cloud backend workflows.',
+      status: 'active',
+      applicantsCount: 5,
+      createdAt: '2026-04-10',
+    },
+    {
+      id: 'post_2',
+      title: 'Summer AI Engineering Fellow',
+      category: 'Fellowship',
+      workType: 'Hybrid',
+      location: 'San Francisco, CA',
+      stipendOrSalary: '$8,500 / month',
+      deadline: '2026-05-15',
+      description: 'Conduct applied LLM research, model tuning, and develop production AI Studio agents.',
+      status: 'active',
+      applicantsCount: 8,
+      createdAt: '2026-04-12',
+    },
+  ]);
+
+  const [companyApplicants, setCompanyApplicants] = useState<CompanyApplicant[]>([
+    {
+      id: 'app_c1',
+      applicantName: 'Alex Rivera',
+      applicantEmail: 'alex.rivera@example.com',
+      opportunityTitle: 'Full Stack Software Engineer (React & Cloud)',
+      appliedDate: '2026-04-28',
+      status: 'Under Review',
+      portfolioUrl: 'https://github.com/alexrivera-dev',
+    },
+    {
+      id: 'app_c2',
+      applicantName: 'Maya Chen',
+      applicantEmail: 'm.chen@example.org',
+      opportunityTitle: 'Summer AI Engineering Fellow',
+      appliedDate: '2026-04-29',
+      status: 'Interviewing',
+      portfolioUrl: 'https://mayachen.ai',
+    },
+    {
+      id: 'app_c3',
+      applicantName: "David O'Connor",
+      applicantEmail: 'david.oc@example.com',
+      opportunityTitle: 'Full Stack Software Engineer (React & Cloud)',
+      appliedDate: '2026-05-01',
+      status: 'Offer',
+    },
+  ]);
+
+  // Company: New Posting Form state
+  const [newPostTitle, setNewPostTitle] = useState('');
+  const [newPostCategory, setNewPostCategory] = useState<'Internship' | 'Full-Time' | 'Fellowship' | 'Scholarship' | 'Grant'>('Full-Time');
+  const [newPostWorkType, setNewPostWorkType] = useState<'Remote' | 'Hybrid' | 'On-site'>('Remote');
+  const [newPostLocation, setNewPostLocation] = useState('Remote');
+  const [newPostComp, setNewPostComp] = useState('');
+  const [newPostDeadline, setNewPostDeadline] = useState('');
+  const [newPostDesc, setNewPostDesc] = useState('');
 
   // Copy UID helper
   const [copiedUid, setCopiedUid] = useState(false);
@@ -134,6 +255,70 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     } finally {
       setSavingName(false);
     }
+  };
+
+  const handleSaveCompanyProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!companyNameInput.trim()) {
+      onToast('Company name cannot be empty.', 'error');
+      return;
+    }
+    setSavingCompanyProfile(true);
+    try {
+      await updateCompanyProfile(companyNameInput.trim(), companyWebsiteInput.trim());
+      if (displayNameInput.trim()) {
+        await updateDisplayName(displayNameInput.trim());
+      }
+      onToast('Company profile updated in Firebase successfully!', 'success');
+    } catch (err: any) {
+      onToast(err?.message || 'Failed to update company profile', 'error');
+    } finally {
+      setSavingCompanyProfile(false);
+    }
+  };
+
+  const handleCreatePosting = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostTitle.trim() || !newPostDesc.trim()) {
+      onToast('Job title and description are required.', 'error');
+      return;
+    }
+    const newPosting: CompanyPosting = {
+      id: `post_${Date.now()}`,
+      title: newPostTitle.trim(),
+      category: newPostCategory,
+      workType: newPostWorkType,
+      location: newPostLocation,
+      stipendOrSalary: newPostComp.trim() || 'Competitive',
+      deadline: newPostDeadline || 'Rolling Admissions',
+      description: newPostDesc.trim(),
+      status: 'active',
+      applicantsCount: 0,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setCompanyPostings((prev) => [newPosting, ...prev]);
+    onToast(`"${newPostTitle}" published to OpportunityHub!`, 'success');
+    setActiveTab('listings');
+    setNewPostTitle('');
+    setNewPostComp('');
+    setNewPostDesc('');
+    setNewPostDeadline('');
+  };
+
+  const handleTogglePostingStatus = (postingId: string) => {
+    setCompanyPostings((prev) =>
+      prev.map((p) =>
+        p.id === postingId ? { ...p, status: p.status === 'active' ? 'closed' : 'active' } : p
+      )
+    );
+    onToast('Opportunity listing status updated.', 'info');
+  };
+
+  const handleUpdateApplicantStatus = (applicantId: string, status: CompanyApplicant['status']) => {
+    setCompanyApplicants((prev) =>
+      prev.map((app) => (app.id === applicantId ? { ...app, status } : app))
+    );
+    onToast(`Applicant status changed to ${status}.`, 'info');
   };
 
   const toggleCategory = (cat: string) => {
@@ -202,14 +387,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return null;
   }
 
-  const displayName = userProfile?.displayName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
   const isGoogleUser = currentUser.providerData.some((p) => p.providerId === 'google.com');
+  const effectiveDisplayName = isCompany && userProfile?.companyName
+    ? userProfile.companyName
+    : userProfile?.displayName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
 
-  const stats = {
+  const candidateStats = {
     saved: savedOpportunities.length,
     applied: applications.filter((a) => a.status === 'Applied').length,
     interviewing: applications.filter((a) => a.status === 'Interviewing').length,
     offer: applications.filter((a) => a.status === 'Offer').length,
+  };
+
+  const companyStats = {
+    activePostings: companyPostings.filter((p) => p.status === 'active').length,
+    totalApplicants: companyApplicants.length,
+    reviewing: companyApplicants.filter((a) => a.status === 'Under Review').length,
+    interviewing: companyApplicants.filter((a) => a.status === 'Interviewing').length,
+    offers: companyApplicants.filter((a) => a.status === 'Offer').length,
   };
 
   return (
@@ -230,20 +425,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {currentUser.photoURL ? (
             <img
               src={currentUser.photoURL}
-              alt={displayName}
+              alt={effectiveDisplayName}
               className="w-20 h-20 rounded-2xl object-cover ring-4 ring-indigo-50 shadow-md"
             />
           ) : (
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-indigo-600 to-emerald-500 text-white font-extrabold text-2xl flex items-center justify-center shadow-md shadow-indigo-500/20">
-              {displayName.charAt(0).toUpperCase()}
+            <div className={`w-20 h-20 rounded-2xl ${
+              isCompany
+                ? 'bg-gradient-to-tr from-amber-500 via-indigo-600 to-indigo-700'
+                : 'bg-gradient-to-tr from-indigo-600 to-emerald-500'
+            } text-white font-extrabold text-2xl flex items-center justify-center shadow-md shadow-indigo-500/20`}>
+              {isCompany ? <Building2 className="w-10 h-10" /> : effectiveDisplayName.charAt(0).toUpperCase()}
             </div>
           )}
 
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                {displayName}
+                {effectiveDisplayName}
               </h1>
+
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                isCompany
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+              }`}>
+                {isCompany ? '🏢 Company Account' : '👤 Employee Account'}
+              </span>
+
               {currentUser.emailVerified ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Verified
@@ -253,19 +461,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <Clock className="w-3.5 h-3.5" /> Pending Verification
                 </span>
               )}
-
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                {isGoogleUser ? 'Google Account' : 'Email/Password'}
-              </span>
             </div>
 
-            <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-slate-400" />
-              {currentUser.email}
+            <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-slate-400" />
+                {currentUser.email}
+              </span>
+              {isCompany && userProfile?.companyWebsite && (
+                <a
+                  href={userProfile.companyWebsite.startsWith('http') ? userProfile.companyWebsite : `https://${userProfile.companyWebsite}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline font-semibold"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  {userProfile.companyWebsite.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+              {isCompany && (
+                <span className="text-xs text-slate-400">
+                  Recruiter Contact: {userProfile?.displayName || displayNameInput}
+                </span>
+              )}
             </p>
 
             <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-              <span>UID: {currentUser.uid.slice(0, 12)}...</span>
+              <span>Account UID: {currentUser.uid.slice(0, 12)}...</span>
               <button
                 onClick={handleCopyUid}
                 className="hover:text-indigo-600 transition flex items-center gap-1"
@@ -282,593 +504,1068 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => onNavigateToExplore()}
-            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition"
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
           >
             <Compass className="w-4 h-4" />
-            Explore More
+            Explore Hub
           </button>
-          <button
-            onClick={() => {
-              setAddAppModalOpen(true);
-              setActiveTab('applications');
-            }}
-            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            Track Application
-          </button>
+          {isCompany ? (
+            <button
+              onClick={() => setActiveTab('post')}
+              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              Post Opportunity
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setAddAppModalOpen(true);
+                setActiveTab('applications');
+              }}
+              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              Track Application
+            </button>
+          )}
         </div>
       </div>
 
       {/* Sub Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-1 mb-6 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'overview'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <User className="w-4 h-4" />
-          Overview
-        </button>
-
-        <button
-          onClick={() => setActiveTab('saved')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'saved'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Bookmark className="w-4 h-4" />
-          Saved Opportunities ({savedOpportunities.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('applications')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'applications'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Briefcase className="w-4 h-4" />
-          Application Pipeline ({applications.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('preferences')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'preferences'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          Career Preferences
-        </button>
-
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
-            activeTab === 'settings'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          Account Settings
-        </button>
-      </div>
-
-      {/* Tab: OVERVIEW */}
-      {activeTab === 'overview' && (
-        <div className="space-y-8 animate-in fade-in duration-150">
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider">Bookmarked</span>
-                <Bookmark className="w-4 h-4 text-indigo-500" />
-              </div>
-              <div className="text-3xl font-extrabold text-slate-900">{stats.saved}</div>
-              <p className="text-xs text-slate-400 mt-1">Saved for review</p>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider">Applied</span>
-                <Briefcase className="w-4 h-4 text-sky-500" />
-              </div>
-              <div className="text-3xl font-extrabold text-slate-900">{stats.applied}</div>
-              <p className="text-xs text-slate-400 mt-1">Applications submitted</p>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider">Interviewing</span>
-                <Clock className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="text-3xl font-extrabold text-slate-900">{stats.interviewing}</div>
-              <p className="text-xs text-slate-400 mt-1">Active interview stages</p>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider">Offers</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              </div>
-              <div className="text-3xl font-extrabold text-slate-900">{stats.offer}</div>
-              <p className="text-xs text-slate-400 mt-1">Offers received</p>
-            </div>
-          </div>
-
-          {/* Recent Applications Section */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">Recent Applications</h2>
-              <button
-                onClick={() => setActiveTab('applications')}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
-              >
-                View Pipeline &rarr;
-              </button>
-            </div>
-
-            {applications.length === 0 ? (
-              <div className="text-center py-10 px-4 border-2 border-dashed border-slate-200 rounded-2xl">
-                <Briefcase className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <h3 className="text-sm font-bold text-slate-800">No applications tracked yet</h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Keep tabs on your job, fellowship, and scholarship applications from submission to offer.
-                </p>
-                <button
-                  onClick={() => setAddAppModalOpen(true)}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add First Application
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {applications.slice(0, 4).map((app) => (
-                  <div key={app.id} className="py-3 flex items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">{app.opportunityTitle}</h4>
-                      <p className="text-xs text-slate-500">{app.organization} &bull; Applied on {app.appliedDate}</p>
-                    </div>
-
-                    <span
-                      className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                        app.status === 'Offer'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : app.status === 'Interviewing'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : app.status === 'Applied'
-                          ? 'bg-sky-50 text-sky-700 border border-sky-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}
-                    >
-                      {app.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tab: SAVED OPPORTUNITIES */}
-      {activeTab === 'saved' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-900">Saved Opportunities</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Private bookmarks securely saved under your UID in Cloud Firestore
-              </p>
-            </div>
+        {isCompany ? (
+          <>
             <button
-              onClick={onNavigateToExplore}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'overview'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
             >
-              Browse Directory
+              <Building2 className="w-4 h-4" />
+              Company Overview
             </button>
-          </div>
 
-          {savedOpportunities.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs">
-              <Bookmark className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-slate-800">Your bookmark list is empty</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                Explore tech internships, AI fellowships, and innovation grants and click "Save" to keep them organized here.
-              </p>
-              <button
-                onClick={onNavigateToExplore}
-                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-sm transition"
-              >
-                <Compass className="w-4 h-4" />
-                Explore Opportunities
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {savedOpportunities.map((opp) => (
-                <div
-                  key={opp.id}
-                  className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:border-slate-300 transition flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
-                        {opp.type || 'Opportunity'}
-                      </span>
-                      <button
-                        onClick={() => {
-                          removeSavedOpportunity(opp.id);
-                          onToast('Opportunity removed from saved list.', 'info');
-                        }}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition"
-                        title="Remove Bookmark"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <h3 className="text-base font-bold text-slate-900 leading-snug">{opp.title}</h3>
-                    <p className="text-xs font-semibold text-slate-600 mt-1 flex items-center gap-1.5">
-                      <Building className="w-3.5 h-3.5 text-slate-400" />
-                      {opp.company}
-                    </p>
-
-                    {opp.location && (
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        {opp.location}
-                      </p>
-                    )}
-
-                    {opp.deadline && (
-                      <p className="text-xs text-amber-700 mt-2 flex items-center gap-1.5 font-medium">
-                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                        Deadline: {opp.deadline}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => {
-                        if (onSelectOpportunityForDetails) {
-                          onSelectOpportunityForDetails(opp.id);
-                        } else {
-                          onNavigateToExplore();
-                        }
-                      }}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
-                    >
-                      View Details &rarr;
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setNewAppTitle(opp.title);
-                        setNewAppCompany(opp.company);
-                        setAddAppModalOpen(true);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Track in Pipeline
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab: APPLICATIONS PIPELINE */}
-      {activeTab === 'applications' && (
-        <div className="space-y-6 animate-in fade-in duration-150">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-900">Application Pipeline Tracker</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Manage and update statuses in real-time synced to Firestore
-              </p>
-            </div>
             <button
-              onClick={() => setAddAppModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-sm transition active:scale-95"
+              onClick={() => setActiveTab('post')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'post'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
             >
               <Plus className="w-4 h-4" />
-              Add Application
+              Post Opportunity
             </button>
-          </div>
 
-          {applications.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs">
-              <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-slate-800">No applications in your tracker</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                Record your application submissions, interviews, and offers to stay on top of your job hunt.
-              </p>
-              <button
-                onClick={() => setAddAppModalOpen(true)}
-                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-sm transition"
-              >
-                <Plus className="w-4 h-4" />
-                Add First Application
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {applications.map((app) => (
-                <div
-                  key={app.id}
-                  className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-base font-bold text-slate-900">{app.opportunityTitle}</h3>
-                      <select
-                        value={app.status}
-                        onChange={(e) => {
-                          const newStatus = e.target.value as ApplicationTrackerItem['status'];
-                          updateApplicationStatus(app.id, newStatus);
-                          onToast(`Status updated to ${newStatus}`, 'info');
-                        }}
-                        className={`text-xs font-bold px-2.5 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                          app.status === 'Offer'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                            : app.status === 'Interviewing'
-                            ? 'bg-amber-50 text-amber-800 border-amber-300'
-                            : app.status === 'Applied'
-                            ? 'bg-sky-50 text-sky-800 border-sky-300'
-                            : 'bg-rose-50 text-rose-800 border-rose-300'
-                        }`}
-                      >
-                        <option value="Applied">Applied</option>
-                        <option value="Interviewing">Interviewing</option>
-                        <option value="Offer">Offer</option>
-                        <option value="Rejected">Rejected</option>
-                      </select>
+            <button
+              onClick={() => setActiveTab('listings')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'listings'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              Active Listings ({companyPostings.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('applicants')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'applicants'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Candidate Applicants ({companyApplicants.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'settings'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              Company Settings
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'overview'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              Overview
+            </button>
+
+            <button
+              onClick={() => setActiveTab('saved')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'saved'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Bookmark className="w-4 h-4" />
+              Saved Opportunities ({savedOpportunities.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('applications')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'applications'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              Application Pipeline ({applications.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('preferences')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'preferences'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              Career Preferences
+            </button>
+
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl whitespace-nowrap transition-all ${
+                activeTab === 'settings'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              Account Settings
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* ============================================================== */}
+      {/* COMPANY PORTAL VIEWS */}
+      {/* ============================================================== */}
+      {isCompany && (
+        <>
+          {/* COMPANY: OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8 animate-in fade-in duration-150">
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Active Postings</span>
+                    <Briefcase className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{companyStats.activePostings}</div>
+                  <p className="text-xs text-slate-400 mt-1">Accepting applicants</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Applicants</span>
+                    <Users className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{companyStats.totalApplicants}</div>
+                  <p className="text-xs text-slate-400 mt-1">Candidates applied</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Under Review</span>
+                    <Clock className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{companyStats.reviewing}</div>
+                  <p className="text-xs text-slate-400 mt-1">Awaiting review</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Interviewing</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{companyStats.interviewing}</div>
+                  <p className="text-xs text-slate-400 mt-1">Interviews scheduled</p>
+                </div>
+              </div>
+
+              {/* Recent Applicants Preview */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Recent Candidate Applicants</h2>
+                    <p className="text-xs text-slate-500">Candidates who submitted applications for your listings</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('applicants')}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    View All Applicants ({companyApplicants.length}) &rarr;
+                  </button>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {companyApplicants.map((applicant) => (
+                    <div key={applicant.id} className="py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-900">{applicant.applicantName}</h4>
+                          <span className="text-xs text-slate-400">&bull; {applicant.applicantEmail}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Applying for: <span className="font-semibold text-slate-700">{applicant.opportunityTitle}</span> &bull; {applicant.appliedDate}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={applicant.status}
+                          onChange={(e) => handleUpdateApplicantStatus(applicant.id, e.target.value as CompanyApplicant['status'])}
+                          className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="Under Review">Under Review</option>
+                          <option value="Interviewing">Interviewing</option>
+                          <option value="Offer">Offer Extended</option>
+                          <option value="Rejected">Declined</option>
+                        </select>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
 
-                    <p className="text-xs text-slate-600 flex items-center gap-3">
-                      <span className="font-semibold text-slate-800">{app.organization}</span>
-                      <span>&bull;</span>
-                      <span>Applied: {app.appliedDate}</span>
-                    </p>
+              {/* Active Listings Preview */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-slate-900">Active Job & Fellowship Listings</h2>
+                  <button
+                    onClick={() => setActiveTab('post')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Post New
+                  </button>
+                </div>
 
-                    {/* Notes display & editing */}
-                    {editingAppId === app.id ? (
-                      <div className="mt-3 flex items-center gap-2 max-w-lg">
-                        <input
-                          type="text"
-                          value={editingNotesText}
-                          onChange={(e) => setEditingNotesText(e.target.value)}
-                          placeholder="Interview notes, contacts, deadlines..."
-                          className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                        <button
-                          onClick={() => handleSaveNotes(app.id, app.status)}
-                          className="px-2.5 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingAppId(null)}
-                          className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-800"
-                        >
-                          Cancel
-                        </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {companyPostings.map((posting) => (
+                    <div key={posting.id} className="p-4 rounded-2xl border border-slate-200 hover:border-slate-300 bg-slate-50/50">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className="font-bold text-slate-900 text-sm">{posting.title}</h4>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          posting.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {posting.status.toUpperCase()}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="mt-2 text-xs text-slate-500 flex items-center gap-2">
-                        <span className="italic">{app.notes || 'No notes added'}</span>
-                        <button
-                          onClick={() => {
-                            setEditingAppId(app.id);
-                            setEditingNotesText(app.notes || '');
-                          }}
-                          className="text-slate-400 hover:text-indigo-600 p-0.5"
-                          title="Edit notes"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
+                      <p className="text-xs text-slate-500 line-clamp-2 mb-3">{posting.description}</p>
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/60">
+                        <span>{posting.category} &bull; {posting.workType}</span>
+                        <span className="font-semibold text-indigo-700">{posting.applicantsCount} applicants</span>
                       </div>
-                    )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPANY: POST OPPORTUNITY */}
+          {activeTab === 'post' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs max-w-2xl mx-auto animate-in fade-in duration-150">
+              <div className="mb-6">
+                <h2 className="text-xl font-extrabold text-slate-900">Post a New Opportunity</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Publish a job, internship, scholarship, or fellowship under your verified company profile.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreatePosting} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Opportunity Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Lead Frontend Architect, Data Science Fellow"
+                    value={newPostTitle}
+                    onChange={(e) => setNewPostTitle(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+                    <select
+                      value={newPostCategory}
+                      onChange={(e) => setNewPostCategory(e.target.value as any)}
+                      className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="Full-Time">Full-Time Job</option>
+                      <option value="Internship">Internship</option>
+                      <option value="Fellowship">Fellowship</option>
+                      <option value="Scholarship">Scholarship</option>
+                      <option value="Grant">Grant</option>
+                    </select>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 self-end md:self-center">
-                    <button
-                      onClick={() => {
-                        deleteApplication(app.id);
-                        onToast('Application entry removed.', 'info');
-                      }}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
-                      title="Delete entry"
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Work Arrangement</label>
+                    <select
+                      value={newPostWorkType}
+                      onChange={(e) => setNewPostWorkType(e.target.value as any)}
+                      className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <option value="Remote">Remote</option>
+                      <option value="Hybrid">Hybrid</option>
+                      <option value="On-site">On-site</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. San Francisco, CA or Global"
+                      value={newPostLocation}
+                      onChange={(e) => setNewPostLocation(e.target.value)}
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Compensation / Stipend</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. $120,000 / yr or $6,000 / mo"
+                      value={newPostComp}
+                      onChange={(e) => setNewPostComp(e.target.value)}
+                      className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Application Deadline</label>
+                  <input
+                    type="date"
+                    value={newPostDeadline}
+                    onChange={(e) => setNewPostDeadline(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Job Description & Responsibilities</label>
+                  <textarea
+                    rows={4}
+                    required
+                    placeholder="Describe role scope, engineering stack, qualification requirements, and candidate perks..."
+                    value={newPostDesc}
+                    onChange={(e) => setNewPostDesc(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="pt-3">
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm transition active:scale-98"
+                  >
+                    Publish Opportunity Listing
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* COMPANY: ACTIVE LISTINGS */}
+          {activeTab === 'listings' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Manage Postings</h2>
+                  <p className="text-xs text-slate-500">Track and toggle active listings on OpportunityHub</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('post')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Post New Opportunity
+                </button>
+              </div>
+
+              {companyPostings.map((posting) => (
+                <div key={posting.id} className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                        posting.status === 'active' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {posting.status === 'active' ? '● ACTIVE' : '○ CLOSED'}
+                      </span>
+                      <span className="text-xs font-bold text-indigo-700 px-2 py-0.5 rounded-md bg-indigo-50">
+                        {posting.category}
+                      </span>
+                      <span className="text-xs text-slate-400">&bull; {posting.workType}</span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-slate-900">{posting.title}</h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-2xl">{posting.description}</p>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        {posting.location}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                        {posting.stipendOrSalary}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        Deadline: {posting.deadline}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-slate-900">{posting.applicantsCount}</div>
+                      <div className="text-[11px] text-slate-400">Applicants</div>
+                    </div>
+
+                    <button
+                      onClick={() => handleTogglePostingStatus(posting.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        posting.status === 'active'
+                          ? 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      }`}
+                    >
+                      {posting.status === 'active' ? 'Close Listing' : 'Reactivate'}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+
+          {/* COMPANY: APPLICANTS PIPELINE */}
+          {activeTab === 'applicants' && (
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs animate-in fade-in duration-150">
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Candidate Applicants</h2>
+                  <p className="text-xs text-slate-500">Review candidates and advance hiring stages</p>
+                </div>
+                <div className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full w-fit">
+                  Total Candidates: {companyApplicants.length}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="pb-3 px-2">Candidate</th>
+                      <th className="pb-3 px-2">Role Applied</th>
+                      <th className="pb-3 px-2">Date</th>
+                      <th className="pb-3 px-2">Portfolio / Links</th>
+                      <th className="pb-3 px-2">Stage</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {companyApplicants.map((applicant) => (
+                      <tr key={applicant.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 px-2 font-bold text-slate-900">
+                          <div>{applicant.applicantName}</div>
+                          <div className="text-slate-400 font-normal">{applicant.applicantEmail}</div>
+                        </td>
+                        <td className="py-3 px-2 text-slate-700 font-medium">
+                          {applicant.opportunityTitle}
+                        </td>
+                        <td className="py-3 px-2 text-slate-500">
+                          {applicant.appliedDate}
+                        </td>
+                        <td className="py-3 px-2">
+                          {applicant.portfolioUrl ? (
+                            <a
+                              href={applicant.portfolioUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:underline inline-flex items-center gap-1 font-semibold"
+                            >
+                              View Portfolio
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : (
+                            <span className="text-slate-400">Attached to profile</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2">
+                          <select
+                            value={applicant.status}
+                            onChange={(e) => handleUpdateApplicantStatus(applicant.id, e.target.value as CompanyApplicant['status'])}
+                            className="font-bold px-2 py-1 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          >
+                            <option value="Under Review">Under Review</option>
+                            <option value="Interviewing">Interviewing</option>
+                            <option value="Offer">Offer Extended</option>
+                            <option value="Rejected">Declined</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* COMPANY: SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs max-w-xl mx-auto animate-in fade-in duration-150">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Company Profile Settings</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage organization credentials, recruiter details, and web presence.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveCompanyProfile} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Organization Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={companyNameInput}
+                    onChange={(e) => setCompanyNameInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Company Website</label>
+                  <input
+                    type="url"
+                    placeholder="https://company.com"
+                    value={companyWebsiteInput}
+                    onChange={(e) => setCompanyWebsiteInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Recruiter / Contact Person Name</label>
+                  <input
+                    type="text"
+                    value={displayNameInput}
+                    onChange={(e) => setDisplayNameInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Role</label>
+                  <input
+                    type="text"
+                    disabled
+                    value="🏢 Verified Company Account"
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Role is permanently bound to your account and enforced by Firebase Security Rules.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingCompanyProfile}
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    {savingCompanyProfile ? 'Saving...' : 'Update Company Profile'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Tab: CAREER PREFERENCES */}
-      {activeTab === 'preferences' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6 animate-in fade-in duration-150">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900">Career Preferences</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Customize your target opportunity types and work locations. Stored securely in your Firestore profile.
-            </p>
-          </div>
+      {/* ============================================================== */}
+      {/* CANDIDATE / EMPLOYEE VIEWS */}
+      {/* ============================================================== */}
+      {!isCompany && (
+        <>
+          {/* CANDIDATE: OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8 animate-in fade-in duration-150">
+              {/* Key Metrics Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Bookmarked</span>
+                    <Bookmark className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{candidateStats.saved}</div>
+                  <p className="text-xs text-slate-400 mt-1">Saved for review</p>
+                </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Interested Opportunity Categories
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {AVAILABLE_CATEGORIES.map((cat) => {
-                const isSelected = selectedCategories.includes(cat);
-                return (
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Applied</span>
+                    <Briefcase className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{candidateStats.applied}</div>
+                  <p className="text-xs text-slate-400 mt-1">Applications submitted</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Interviewing</span>
+                    <Clock className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{candidateStats.interviewing}</div>
+                  <p className="text-xs text-slate-400 mt-1">Active interview stages</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="flex items-center justify-between text-slate-500 mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">Offers</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-3xl font-extrabold text-slate-900">{candidateStats.offer}</div>
+                  <p className="text-xs text-slate-400 mt-1">Offers received</p>
+                </div>
+              </div>
+
+              {/* Recent Applications Section */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-slate-900">Recent Applications</h2>
                   <button
-                    key={cat}
-                    type="button"
-                    onClick={() => toggleCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
-                    }`}
+                    onClick={() => setActiveTab('applications')}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
                   >
-                    {cat}
+                    View Pipeline &rarr;
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Preferred Work Locations
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {AVAILABLE_LOCATIONS.map((loc) => {
-                const isSelected = selectedLocations.includes(loc);
-                return (
+                {applications.length === 0 ? (
+                  <div className="text-center py-10 px-4 border-2 border-dashed border-slate-200 rounded-2xl">
+                    <Briefcase className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <h3 className="text-sm font-bold text-slate-800">No applications tracked yet</h3>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Keep tabs on your job, fellowship, and scholarship applications from submission to offer.
+                    </p>
+                    <button
+                      onClick={() => setAddAppModalOpen(true)}
+                      className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add First Application
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {applications.slice(0, 4).map((app) => (
+                      <div key={app.id} className="py-3 flex items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">{app.opportunityTitle}</h4>
+                          <p className="text-xs text-slate-500">{app.organization} &bull; Applied on {app.appliedDate}</p>
+                        </div>
+
+                        <span
+                          className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                            app.status === 'Offer'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : app.status === 'Interviewing'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : app.status === 'Applied'
+                              ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {app.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* CANDIDATE: SAVED OPPORTUNITIES */}
+          {activeTab === 'saved' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Saved Opportunities</h2>
+                  <p className="text-xs text-slate-500">Bookmarked positions and funding grants</p>
+                </div>
+                <button
+                  onClick={() => onNavigateToExplore()}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                >
+                  Explore More Listings &rarr;
+                </button>
+              </div>
+
+              {savedOpportunities.length === 0 ? (
+                <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200/80">
+                  <Bookmark className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-slate-900">No saved opportunities yet</h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Browse the Explore section and bookmark opportunities you are interested in.
+                  </p>
                   <button
-                    key={loc}
-                    type="button"
-                    onClick={() => toggleLocation(loc)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
-                    }`}
+                    onClick={() => onNavigateToExplore()}
+                    className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition"
                   >
-                    {loc}
+                    Browse Opportunities
                   </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-            <button
-              onClick={handleSavePreferences}
-              disabled={savingPreferences}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-sm transition active:scale-95 disabled:opacity-50"
-            >
-              {savingPreferences ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
+                </div>
               ) : (
-                'Save Preferences'
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {savedOpportunities.map((saved) => (
+                    <div
+                      key={saved.id}
+                      className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-slate-300 transition shadow-xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                              {saved.type || 'Opportunity'}
+                            </span>
+                            <h3 className="text-base font-bold text-slate-900 mt-2">{saved.title}</h3>
+                            <p className="text-xs text-slate-500">{saved.company} &bull; {saved.location || 'Remote'}</p>
+                          </div>
+                          <button
+                            onClick={() => removeSavedOpportunity(saved.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                            title="Remove from saved"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span className="text-slate-400">
+                          {saved.deadline ? `Deadline: ${saved.deadline}` : 'Rolling application'}
+                        </span>
+                        {onSelectOpportunityForDetails && (
+                          <button
+                            onClick={() => onSelectOpportunityForDetails(saved.id)}
+                            className="font-bold text-indigo-600 hover:text-indigo-800"
+                          >
+                            View Details &rarr;
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </button>
-          </div>
-        </div>
+            </div>
+          )}
+
+          {/* CANDIDATE: APPLICATION PIPELINE */}
+          {activeTab === 'applications' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Application Pipeline</h2>
+                  <p className="text-xs text-slate-500">Track and advance every opportunity submission</p>
+                </div>
+                <button
+                  onClick={() => setAddAppModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Application
+                </button>
+              </div>
+
+              {applications.length === 0 ? (
+                <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200/80">
+                  <Briefcase className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-slate-900">Your pipeline is empty</h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Track the jobs, internships, fellowships, and grants you've applied to in one place.
+                  </p>
+                  <button
+                    onClick={() => setAddAppModalOpen(true)}
+                    className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition"
+                  >
+                    Track First Application
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {applications.map((app) => (
+                    <div
+                      key={app.id}
+                      className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-base font-bold text-slate-900">{app.opportunityTitle}</h3>
+                          <span className="text-xs text-slate-400">&bull; {app.organization}</span>
+                        </div>
+                        <p className="text-xs text-slate-500">Applied date: {app.appliedDate}</p>
+
+                        {/* Notes preview or editor */}
+                        {editingAppId === app.id ? (
+                          <div className="mt-3 flex items-center gap-2 max-w-lg">
+                            <input
+                              type="text"
+                              value={editingNotesText}
+                              onChange={(e) => setEditingNotesText(e.target.value)}
+                              placeholder="Add personal notes, recruiter names, follow-up dates..."
+                              className="w-full text-xs px-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <button
+                              onClick={() => handleSaveNotes(app.id, app.status)}
+                              className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold shrink-0"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingAppId(null)}
+                              className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-800 shrink-0"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-slate-600 italic">
+                              {app.notes ? `"${app.notes}"` : 'No personal notes attached.'}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingAppId(app.id);
+                                setEditingNotesText(app.notes || '');
+                              }}
+                              className="text-[11px] font-semibold text-indigo-600 hover:underline flex items-center gap-0.5"
+                            >
+                              <Edit2 className="w-3 h-3" /> Edit notes
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status changer & deletion */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <select
+                          value={app.status}
+                          onChange={(e) =>
+                            updateApplicationStatus(
+                              app.id,
+                              e.target.value as ApplicationTrackerItem['status'],
+                              app.notes
+                            )
+                          }
+                          className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="Applied">Applied</option>
+                          <option value="Interviewing">Interviewing</option>
+                          <option value="Offer">Offer</option>
+                          <option value="Rejected">Rejected</option>
+                        </select>
+
+                        <button
+                          onClick={() => deleteApplication(app.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                          title="Delete application"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CANDIDATE: CAREER PREFERENCES */}
+          {activeTab === 'preferences' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs max-w-2xl mx-auto animate-in fade-in duration-150">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Career Preferences</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Customize the categories and work arrangements that matter to you.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
+                    Preferred Opportunities & Fields
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_CATEGORIES.map((cat) => {
+                      const isSelected = selectedCategories.includes(cat);
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => toggleCategory(cat)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
+                    Work Location Types
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_LOCATIONS.map((loc) => {
+                      const isSelected = selectedLocations.includes(loc);
+                      return (
+                        <button
+                          key={loc}
+                          type="button"
+                          onClick={() => toggleLocation(loc)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                            isSelected
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          {loc}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100">
+                  <button
+                    onClick={handleSavePreferences}
+                    disabled={savingPreferences}
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    {savingPreferences ? 'Saving Preferences...' : 'Save Preferences to Profile'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CANDIDATE: ACCOUNT SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs max-w-xl mx-auto animate-in fade-in duration-150">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-slate-900">Account Settings</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage your personal display name and security credentials.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveDisplayName} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Display Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={displayNameInput}
+                    onChange={(e) => setDisplayNameInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    disabled
+                    value={currentUser.email || ''}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Email address is managed through your Firebase Authentication account.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Role</label>
+                  <input
+                    type="text"
+                    disabled
+                    value="👤 Employee Account"
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Role is permanently bound to your account and enforced by Firebase Security Rules.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingName}
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    {savingName ? 'Saving...' : 'Update Display Name'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Tab: ACCOUNT SETTINGS */}
-      {activeTab === 'settings' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6 animate-in fade-in duration-150">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900">Account Settings</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Manage your display name, review credentials, and inspect security rules
-            </p>
-          </div>
-
-          {/* Edit Display Name */}
-          <form onSubmit={handleSaveDisplayName} className="max-w-md space-y-3">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Display Name
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={displayNameInput}
-                onChange={(e) => setDisplayNameInput(e.target.value)}
-                required
-                className="flex-1 px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                type="submit"
-                disabled={savingName}
-                className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition disabled:opacity-50"
-              >
-                {savingName ? 'Saving...' : 'Update'}
-              </button>
-            </div>
-          </form>
-
-          {/* Account Details Box */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 max-w-lg space-y-2 text-xs text-slate-600">
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-semibold text-slate-700">Account Email</span>
-              <span className="font-mono text-slate-900">{currentUser.email}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-semibold text-slate-700">Authentication Method</span>
-              <span className="capitalize">{currentUser.providerData[0]?.providerId || 'Firebase Auth'}</span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="font-semibold text-slate-700">Email Verification</span>
-              <span className={currentUser.emailVerified ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
-                {currentUser.emailVerified ? 'Verified' : 'Pending Verification'}
-              </span>
-            </div>
-            <div className="flex justify-between py-1">
-              <span className="font-semibold text-slate-700">User UID</span>
-              <span className="font-mono text-slate-500 text-[11px] truncate max-w-[200px]">{currentUser.uid}</span>
-            </div>
-          </div>
-
-          {/* Logout Section */}
-          <div className="pt-6 border-t border-slate-100">
-            <button
-              onClick={async () => {
-                await logout();
-                onToast('Successfully signed out.', 'info');
-              }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-rose-300 text-rose-600 font-bold text-xs hover:bg-rose-50 transition"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out of OpportunityHub
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Add Application */}
+      {/* Candidate Add Application Modal */}
       {addAppModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 my-8 animate-in fade-in zoom-in-95">
-            <h3 className="text-xl font-extrabold text-slate-900 mb-4">Track New Application</h3>
-            <form onSubmit={handleCreateApplication} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md p-6 relative animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Track New Application</h3>
+            <p className="text-xs text-slate-500 mb-4">Add a job, internship, or fellowship to your tracker.</p>
+
+            <form onSubmit={handleCreateApplication} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Opportunity Title</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. AI Research Fellowship"
+                  placeholder="e.g. Software Engineer Intern"
                   value={newAppTitle}
                   onChange={(e) => setNewAppTitle(e.target.value)}
                   className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -876,7 +1573,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Organization</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Organization / Company</label>
                 <input
                   type="text"
                   required

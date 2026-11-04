@@ -1,8 +1,13 @@
+export type AccountType = 'company' | 'employee';
+
 export interface UserProfile {
   uid: string;
   displayName: string | null;
   email: string;
   photoURL?: string | null;
+  accountType?: AccountType;
+  companyName?: string;
+  companyWebsite?: string;
   preferredCategories?: string[];
   preferredLocations?: string[];
   createdAt?: string;

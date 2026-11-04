@@ -21,22 +21,30 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
-import { UserProfile } from '../types';
+import { UserProfile, AccountType } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
   profileLoading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<{ user: User; profile: UserProfile | null }>;
+  register: (
+    email: string,
+    password: string,
+    fullName: string,
+    accountType?: AccountType,
+    companyName?: string,
+    companyWebsite?: string
+  ) => Promise<UserProfile>;
+  loginWithGoogle: (preferredRole?: AccountType) => Promise<UserProfile | null>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   reloadUser: () => Promise<boolean>;
   updatePreferences: (categories: string[], locations: string[]) => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
+  updateCompanyProfile: (companyName: string, companyWebsite?: string) => Promise<void>;
   intendedDestination: string | null;
   setIntendedDestination: (dest: string | null) => void;
 }
@@ -71,6 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               displayName: user.displayName || user.email?.split('@')[0] || 'User',
               email: user.email || '',
               photoURL: user.photoURL || null,
+              accountType: 'employee',
               preferredCategories: ['Internship', 'Full-Time'],
               preferredLocations: ['Remote'],
               createdAt: new Date().toISOString(),
@@ -119,21 +128,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   // Login with Email/Password and configurable persistence
-  const login = async (email: string, password: string, rememberMe = true) => {
+  const login = async (email: string, password: string, rememberMe = true): Promise<{ user: User; profile: UserProfile | null }> => {
     const persistenceMode = rememberMe ? browserLocalPersistence : browserSessionPersistence;
     await setPersistence(auth, persistenceMode);
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    let profile: UserProfile | null = null;
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        profile = docSnap.data() as UserProfile;
+        setUserProfile(profile);
+      }
+    } catch (e) {
+      console.warn('Login profile fetch note:', e);
+    }
+
+    return { user, profile };
   };
 
-  // Register new account with Email/Password
-  const register = async (email: string, password: string, fullName: string) => {
+  // Register new account with Email/Password & Role
+  const register = async (
+    email: string,
+    password: string,
+    fullName: string,
+    accountType: AccountType = 'employee',
+    companyName?: string,
+    companyWebsite?: string
+  ): Promise<UserProfile> => {
     // 1. Create account in Firebase Authentication
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     // 2. Set user display name in Firebase Auth
-    if (fullName) {
-      await updateProfile(user, { displayName: fullName.trim() });
+    const resolvedName = fullName.trim() || (accountType === 'company' && companyName ? companyName.trim() : email.split('@')[0]);
+    if (resolvedName) {
+      await updateProfile(user, { displayName: resolvedName });
     }
 
     // 3. Send email verification
@@ -146,11 +178,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // 4. Create user profile in Firestore
     const newProfile: UserProfile = {
       uid: user.uid,
-      displayName: fullName.trim() || email.split('@')[0],
+      displayName: resolvedName,
       email: user.email || email,
       photoURL: null,
-      preferredCategories: [],
-      preferredLocations: [],
+      accountType,
+      ...(accountType === 'company' && companyName ? { companyName: companyName.trim() } : {}),
+      ...(accountType === 'company' && companyWebsite ? { companyWebsite: companyWebsite.trim() } : {}),
+      preferredCategories: accountType === 'company' ? ['Full-Time', 'Internship'] : ['Internship', 'Full-Time'],
+      preferredLocations: ['Remote'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -158,14 +193,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await setDoc(doc(db, 'users', user.uid), newProfile);
       setUserProfile(newProfile);
+      return newProfile;
     } catch (dbError) {
       handleFirestoreError(dbError, OperationType.WRITE, `users/${user.uid}`);
+      return newProfile;
     }
   };
 
-  // Google Sign-In
-  const loginWithGoogle = async () => {
-    // Always ensure local persistence for seamless Google sign-in
+  // Google Sign-In with Role support
+  const loginWithGoogle = async (preferredRole: AccountType = 'employee'): Promise<UserProfile | null> => {
     await setPersistence(auth, browserLocalPersistence);
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
@@ -180,6 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           displayName: user.displayName || user.email?.split('@')[0] || 'User',
           email: user.email || '',
           photoURL: user.photoURL || null,
+          accountType: preferredRole,
           preferredCategories: ['Internship', 'Fellowship'],
           preferredLocations: ['Remote'],
           createdAt: new Date().toISOString(),
@@ -187,16 +224,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
         await setDoc(userDocRef, newProfile);
         setUserProfile(newProfile);
+        return newProfile;
       } else {
-        // Update without overwriting user preferences
+        const existingData = docSnap.data() as UserProfile;
         await updateDoc(userDocRef, {
-          displayName: user.displayName || docSnap.data().displayName,
-          photoURL: user.photoURL || docSnap.data().photoURL || null,
+          displayName: user.displayName || existingData.displayName,
+          photoURL: user.photoURL || existingData.photoURL || null,
           updatedAt: new Date().toISOString(),
         });
+        setUserProfile(existingData);
+        return existingData;
       }
     } catch (dbErr) {
       handleFirestoreError(dbErr, OperationType.WRITE, `users/${user.uid}`);
+      return null;
     }
   };
 
@@ -274,6 +315,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Update Company Profile (Name & Website)
+  const updateCompanyProfile = async (companyName: string, companyWebsite?: string) => {
+    if (!currentUser) throw new Error('You must be logged in.');
+    const trimmedName = companyName.trim();
+    if (!trimmedName) throw new Error('Company name cannot be empty.');
+
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    try {
+      const updates: { companyName: string; companyWebsite?: string; updatedAt: string } = {
+        companyName: trimmedName,
+        updatedAt: new Date().toISOString(),
+      };
+      if (companyWebsite !== undefined) {
+        updates.companyWebsite = companyWebsite.trim();
+      }
+      await updateDoc(userDocRef, updates);
+      setUserProfile((prev) => (prev ? { ...prev, ...updates } : null));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.uid}`);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -290,6 +353,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         reloadUser,
         updatePreferences,
         updateDisplayName,
+        updateCompanyProfile,
         intendedDestination,
         setIntendedDestination,
       }}

@@ -118,6 +118,13 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
+              <a
+                href={`/verify?email=${encodeURIComponent(currentUser.email || '')}&token=demo_opphub_token_${currentUser.uid.slice(0, 8)}`}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm active:scale-95"
+              >
+                <span>Verify Email Now &rarr;</span>
+              </a>
+
               <button
                 onClick={handleCheckStatus}
                 disabled={checking}

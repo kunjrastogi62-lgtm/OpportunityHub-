@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Compass,
   Bookmark,
@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   ChevronDown,
-  Youtube
+  Youtube,
+  Building2,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useUserData } from '../context/UserDataContext';
@@ -19,7 +21,7 @@ import { useUserData } from '../context/UserDataContext';
 interface NavbarProps {
   currentTab: string;
   onNavigate: (tab: string) => void;
-  onOpenAuth: (mode: 'login' | 'register') => void;
+  onOpenAuth: (mode: 'login' | 'register', role?: 'company' | 'employee') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAuth }) => {
@@ -27,8 +29,33 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
   const { savedOpportunities, applications } = useUserData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
 
-  const displayName = userProfile?.displayName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
+  const signInDropdownRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (signInDropdownRef.current && !signInDropdownRef.current.contains(target)) {
+        setSignInDropdownOpen(false);
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const isCompany = userProfile?.accountType === 'company';
+  const displayName = isCompany && userProfile?.companyName
+    ? userProfile.companyName
+    : userProfile?.displayName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
   const isVerified = currentUser?.emailVerified;
 
   const handleLogout = async () => {
@@ -96,65 +123,130 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                   }`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  Dashboard
+                  {isCompany ? 'Company Portal' : 'Dashboard'}
                 </button>
 
-                <button
-                  onClick={() => onNavigate('saved')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    currentTab === 'saved'
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <Bookmark className="w-4 h-4" />
-                  Saved
-                  {savedOpportunities.length > 0 && (
-                    <span className="ml-1 px-1.5 py-0.2 text-xs font-bold rounded-full bg-slate-200 text-slate-800">
-                      {savedOpportunities.length}
-                    </span>
-                  )}
-                </button>
+                {!isCompany && (
+                  <>
+                    <button
+                      onClick={() => onNavigate('saved')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        currentTab === 'saved'
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Bookmark className="w-4 h-4" />
+                      Saved
+                      {savedOpportunities.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.2 text-xs font-bold rounded-full bg-slate-200 text-slate-800">
+                          {savedOpportunities.length}
+                        </span>
+                      )}
+                    </button>
 
-                <button
-                  onClick={() => onNavigate('applications')}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    currentTab === 'applications'
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Applications
-                  {applications.length > 0 && (
-                    <span className="ml-1 px-1.5 py-0.2 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700">
-                      {applications.length}
-                    </span>
-                  )}
-                </button>
+                    <button
+                      onClick={() => onNavigate('applications')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        currentTab === 'applications'
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Briefcase className="w-4 h-4" />
+                      Applications
+                      {applications.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.2 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700">
+                          {applications.length}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </nav>
 
           {/* Right Action / Auth Buttons */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2.5">
             {!currentUser ? (
               <>
-                <button
-                  onClick={() => onOpenAuth('login')}
-                  className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-indigo-600 transition-colors"
-                >
-                  Sign In
-                </button>
+                {/* Small Professional Sign In Button with Dropdown */}
+                <div className="relative" ref={signInDropdownRef}>
+                  <button
+                    onClick={() => setSignInDropdownOpen(!signInDropdownOpen)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-indigo-600 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors shadow-xs"
+                    aria-expanded={signInDropdownOpen}
+                    aria-haspopup="true"
+                  >
+                    <span>Sign In</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${
+                        signInDropdownOpen ? 'rotate-180 text-indigo-600' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Compact Dropdown Menu directly below */}
+                  {signInDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Select Portal
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSignInDropdownOpen(false);
+                          onOpenAuth('login', 'company');
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-left transition-colors group"
+                      >
+                        <span className="text-base select-none">🏢</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 group-hover:text-indigo-700">Company</div>
+                          <div className="text-[11px] text-slate-400">Employer login & hiring</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSignInDropdownOpen(false);
+                          onOpenAuth('login', 'employee');
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-left transition-colors group"
+                      >
+                        <span className="text-base select-none">👤</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 group-hover:text-indigo-700">Employee</div>
+                          <div className="text-[11px] text-slate-400">Find jobs & track applications</div>
+                        </div>
+                      </button>
+
+                      <div className="border-t border-slate-100 my-1 pt-1.5 px-3 pb-0.5">
+                        <button
+                          onClick={() => {
+                            setSignInDropdownOpen(false);
+                            onOpenAuth('register');
+                          }}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center justify-between w-full py-0.5"
+                        >
+                          <span>No account?</span>
+                          <span className="underline">Create Account</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={() => onOpenAuth('register')}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-all shadow-indigo-600/20 active:scale-95"
+                  className="px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all shadow-indigo-600/20 active:scale-95"
                 >
                   Create Account
                 </button>
               </>
             ) : (
-              <div className="relative">
+              <div className="relative" ref={profileDropdownRef}>
                 <button
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                   className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors"
@@ -180,12 +272,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                 {profileDropdownOpen && (
                   <div
                     className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
-                    onMouseLeave={() => setProfileDropdownOpen(false)}
                   >
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        Signed in as
-                      </p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                          Signed in as
+                        </p>
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isCompany ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        }`}>
+                          {isCompany ? '🏢 Company' : '👤 Employee'}
+                        </span>
+                      </div>
                       <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
                       <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
 
@@ -213,30 +311,34 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 text-left transition-colors"
                       >
                         <LayoutDashboard className="w-4 h-4 text-slate-400" />
-                        Dashboard
+                        {isCompany ? 'Company Portal' : 'Dashboard'}
                       </button>
 
-                      <button
-                        onClick={() => {
-                          setProfileDropdownOpen(false);
-                          onNavigate('saved');
-                        }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 text-left transition-colors"
-                      >
-                        <Bookmark className="w-4 h-4 text-slate-400" />
-                        Saved Opportunities ({savedOpportunities.length})
-                      </button>
+                      {!isCompany && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setProfileDropdownOpen(false);
+                              onNavigate('saved');
+                            }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 text-left transition-colors"
+                          >
+                            <Bookmark className="w-4 h-4 text-slate-400" />
+                            Saved Opportunities ({savedOpportunities.length})
+                          </button>
 
-                      <button
-                        onClick={() => {
-                          setProfileDropdownOpen(false);
-                          onNavigate('applications');
-                        }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 text-left transition-colors"
-                      >
-                        <Briefcase className="w-4 h-4 text-slate-400" />
-                        Tracked Applications ({applications.length})
-                      </button>
+                          <button
+                            onClick={() => {
+                              setProfileDropdownOpen(false);
+                              onNavigate('applications');
+                            }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 text-left transition-colors"
+                          >
+                            <Briefcase className="w-4 h-4 text-slate-400" />
+                            Tracked Applications ({applications.length})
+                          </button>
+                        </>
+                      )}
 
                       <button
                         onClick={() => {
@@ -311,32 +413,36 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                 }}
                 className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-800 hover:bg-slate-100 flex items-center justify-between"
               >
-                <span>Dashboard</span>
+                <span>{isCompany ? '🏢 Company Portal' : 'Dashboard'}</span>
               </button>
-              <button
-                onClick={() => {
-                  onNavigate('saved');
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-800 hover:bg-slate-100 flex items-center justify-between"
-              >
-                <span>Saved Opportunities</span>
-                <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
-                  {savedOpportunities.length}
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  onNavigate('applications');
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-800 hover:bg-slate-100 flex items-center justify-between"
-              >
-                <span>Application Tracker</span>
-                <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
-                  {applications.length}
-                </span>
-              </button>
+              {!isCompany && (
+                <>
+                  <button
+                    onClick={() => {
+                      onNavigate('saved');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-800 hover:bg-slate-100 flex items-center justify-between"
+                  >
+                    <span>Saved Opportunities</span>
+                    <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
+                      {savedOpportunities.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigate('applications');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-800 hover:bg-slate-100 flex items-center justify-between"
+                  >
+                    <span>Application Tracker</span>
+                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
+                      {applications.length}
+                    </span>
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => {
                   onNavigate('settings');
@@ -360,23 +466,37 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
             </>
           ) : (
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                Sign In
+              </div>
               <button
                 onClick={() => {
-                  onOpenAuth('login');
+                  onOpenAuth('login', 'company');
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 text-center text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                className="w-full flex items-center justify-center gap-2 py-2 text-center text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl"
               >
-                Sign In
+                <span>🏢</span>
+                <span>Sign In as Company</span>
+              </button>
+              <button
+                onClick={() => {
+                  onOpenAuth('login', 'employee');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 text-center text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl"
+              >
+                <span>👤</span>
+                <span>Sign In as Employee</span>
               </button>
               <button
                 onClick={() => {
                   onOpenAuth('register');
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm"
+                className="w-full py-2.5 text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm mt-1"
               >
-                Create Free Account
+                Create Account
               </button>
             </div>
           )}

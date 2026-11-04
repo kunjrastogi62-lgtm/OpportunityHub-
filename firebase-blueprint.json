@@ -23,6 +23,21 @@
           "type": "string",
           "description": "Avatar URL or null"
         },
+        "accountType": {
+          "type": "string",
+          "description": "Account role: company or employee",
+          "enum": ["company", "employee"]
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Company name if accountType is company",
+          "maxLength": 100
+        },
+        "companyWebsite": {
+          "type": "string",
+          "description": "Company website url",
+          "maxLength": 200
+        },
         "preferredCategories": {
           "type": "array",
           "description": "Career interest categories"

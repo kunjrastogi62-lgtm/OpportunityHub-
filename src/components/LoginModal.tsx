@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Mail,
@@ -8,15 +8,19 @@ import {
   AlertCircle,
   Loader2,
   LogIn,
+  Building2,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { AccountType } from '../types';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSwitchToRegister: () => void;
+  onSwitchToRegister: (role?: AccountType) => void;
   onSwitchToForgotPassword: () => void;
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string, role?: AccountType) => void;
+  initialRole?: AccountType;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -25,9 +29,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onSwitchToRegister,
   onSwitchToForgotPassword,
   onSuccess,
+  initialRole = 'employee',
 }) => {
-  const { login, loginWithGoogle, intendedDestination, setIntendedDestination } = useAuth();
+  const { login, loginWithGoogle, intendedDestination } = useAuth();
 
+  const [activeRole, setActiveRole] = useState<AccountType>(initialRole);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,6 +42,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync role when modal opens with specific initialRole
+  useEffect(() => {
+    if (isOpen && initialRole) {
+      setActiveRole(initialRole);
+      setError(null);
+    }
+  }, [isOpen, initialRole]);
 
   if (!isOpen) return null;
 
@@ -56,8 +70,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
     setLoading(true);
     try {
-      await login(email, password, rememberMe);
-      onSuccess(`Welcome back! Signed in as ${email}.`);
+      const { profile } = await login(email, password, rememberMe);
+      const resolvedRole = profile?.accountType || activeRole;
+      
+      const roleName = resolvedRole === 'company' ? 'Company Portal' : 'Employee Dashboard';
+      onSuccess(`Welcome back! Signed in to ${roleName}.`, resolvedRole);
       onClose();
     } catch (err: any) {
       console.error('Login error:', err);
@@ -88,8 +105,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setGoogleLoading(true);
     setError(null);
     try {
-      await loginWithGoogle();
-      onSuccess('Signed in with Google successfully!');
+      const profile = await loginWithGoogle(activeRole);
+      const resolvedRole = profile?.accountType || activeRole;
+      const roleName = resolvedRole === 'company' ? 'Company Portal' : 'Employee Dashboard';
+      onSuccess(`Signed in with Google to ${roleName}!`, resolvedRole);
       onClose();
     } catch (err: any) {
       console.error('Google Sign-In error:', err);
@@ -98,12 +117,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       } else if (err?.code === 'auth/popup-blocked') {
         setError('The Google sign-in window was blocked by your browser. Please enable popups for this site.');
       } else {
-        setError(err?.message || 'Google sign-in could not be completed. Please try again.');
+        setError(err?.message || 'Google sign-in encountered an issue. Please try again.');
       }
     } finally {
       setGoogleLoading(false);
     }
   };
+
+  const isCompany = activeRole === 'company';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
@@ -117,14 +138,52 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
+        {/* Role Toggle Selector */}
+        <div className="mb-6 p-1 bg-slate-100 rounded-2xl flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveRole('company');
+              setError(null);
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              isCompany
+                ? 'bg-white text-indigo-700 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className="text-base">🏢</span>
+            <span>Company</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveRole('employee');
+              setError(null);
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              !isCompany
+                ? 'bg-white text-indigo-700 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className="text-base">👤</span>
+            <span>Employee</span>
+          </button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-sm">
-            <LogIn className="w-6 h-6" />
+            {isCompany ? <Building2 className="w-6 h-6 text-indigo-600" /> : <LogIn className="w-6 h-6 text-indigo-600" />}
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Sign in to OpportunityHub</h2>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            {isCompany ? 'Company Portal Sign In' : 'Employee Sign In'}
+          </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Access your saved opportunities, application pipeline, and career profile
+            {isCompany
+              ? 'Post career opportunities, fellowships, and hire top candidates'
+              : 'Access your saved opportunities, application pipeline, and career profile'}
           </p>
           {intendedDestination && (
             <div className="mt-2 text-xs bg-indigo-50 text-indigo-700 py-1 px-2.5 rounded-lg border border-indigo-200 font-medium">
@@ -206,10 +265,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 />
               </svg>
             )}
-            <span>{googleLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
+            <span>{googleLoading ? 'Connecting to Google...' : `Sign in as ${isCompany ? 'Company' : 'Employee'} with Google`}</span>
           </div>
           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-            1-Click Sign-in
+            1-Click
           </span>
         </button>
 
@@ -221,14 +280,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Email input */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              {isCompany ? 'Company Work Email' : 'Email Address'}
+            </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="email"
                 required
-                placeholder="you@domain.com"
+                placeholder={isCompany ? 'hiring@company.com' : 'you@example.com'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-800 placeholder-slate-400"
@@ -236,13 +298,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           </div>
 
+          {/* Password input */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-semibold text-slate-700">Password</label>
               <button
                 type="button"
                 onClick={onSwitchToForgotPassword}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
               >
                 Forgot password?
               </button>
@@ -252,7 +315,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-9 pr-10 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-800"
@@ -292,7 +355,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 Signing in...
               </>
             ) : (
-              'Sign In'
+              `Sign In to ${isCompany ? 'Company Portal' : 'Employee Portal'}`
             )}
           </button>
         </form>
@@ -302,10 +365,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           Don't have an account yet?{' '}
           <button
             type="button"
-            onClick={onSwitchToRegister}
+            onClick={() => onSwitchToRegister(activeRole)}
             className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
           >
-            Create an Account
+            Create {isCompany ? 'Company' : 'Employee'} Account
           </button>
         </div>
       </div>

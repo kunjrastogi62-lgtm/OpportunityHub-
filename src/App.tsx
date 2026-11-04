@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { VideoResourcesProvider } from './context/VideoResourcesContext';
@@ -12,10 +12,12 @@ import { ForgotPasswordModal } from './components/ForgotPasswordModal';
 import { OpportunityDetailModal } from './components/OpportunityDetailModal';
 import { EmailVerificationBanner } from './components/EmailVerificationBanner';
 import { AuthActionModal } from './components/AuthActionModal';
+import { PreVerificationCard } from './components/PreVerificationCard';
+import { VerificationSuccessModal } from './components/VerificationSuccessModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { SAMPLE_OPPORTUNITIES } from './data/opportunities';
 import { Opportunity } from './types';
-import { Loader2, ShieldCheck, Compass, Sparkles, Heart } from 'lucide-react';
+import { Loader2, ShieldCheck, Compass, Sparkles, Heart, CheckCircle2 } from 'lucide-react';
 
 function AppContent() {
   const { currentUser, loading, intendedDestination, setIntendedDestination } = useAuth();
@@ -25,7 +27,30 @@ function AppContent() {
   const [currentTab, setCurrentTab] = useState<'explore' | 'videos' | 'dashboard' | 'saved' | 'applications' | 'settings'>('explore');
   const [dashboardSubTab, setDashboardSubTab] = useState<'overview' | 'saved' | 'applications' | 'preferences' | 'settings'>('overview');
 
+  // Email Verification routing & modal state
+  const [isPreVerificationView, setIsPreVerificationView] = useState(false);
+  const [verificationSuccessModalOpen, setVerificationSuccessModalOpen] = useState(false);
+
+  useEffect(() => {
+    const pathname = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+
+    // 1. Detect if standalone Pre-Verification Page is requested (/verify or ?page=verify)
+    if (pathname === '/verify' || params.get('page') === 'verify' || params.get('view') === 'verify') {
+      setIsPreVerificationView(true);
+      return;
+    }
+
+    // 2. Detect if user arrived from successful verification redirect (?verified=true)
+    if (params.get('verified') === 'true') {
+      setVerificationSuccessModalOpen(true);
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
+
   // Modals state
+  const [authRole, setAuthRole] = useState<'company' | 'employee'>('employee');
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
@@ -87,7 +112,10 @@ function AppContent() {
     setCurrentTab('explore');
   };
 
-  const handleOpenAuth = (mode: 'login' | 'register') => {
+  const handleOpenAuth = (mode: 'login' | 'register', role?: 'company' | 'employee') => {
+    if (role) {
+      setAuthRole(role);
+    }
     if (mode === 'login') {
       setLoginModalOpen(true);
       setRegisterModalOpen(false);
@@ -99,22 +127,23 @@ function AppContent() {
     }
   };
 
-  // Handle successful login or registration
-  const handleAuthSuccess = (msg: string) => {
+  // Handle successful login or registration with role-based redirection
+  const handleAuthSuccess = (msg: string, role?: 'company' | 'employee') => {
     addToast(msg, 'success');
-    // If there was an intended destination, redirect to it
-    if (intendedDestination) {
+    setCurrentTab('dashboard');
+    if (role === 'company') {
+      setDashboardSubTab('overview');
+    } else if (intendedDestination) {
       if (intendedDestination.includes('Saved')) {
-        setCurrentTab('dashboard');
         setDashboardSubTab('saved');
       } else if (intendedDestination.includes('Application')) {
-        setCurrentTab('dashboard');
         setDashboardSubTab('applications');
       } else {
-        setCurrentTab('dashboard');
         setDashboardSubTab('overview');
       }
       setIntendedDestination(null);
+    } else {
+      setDashboardSubTab('overview');
     }
   };
 
@@ -142,6 +171,25 @@ function AppContent() {
       setSelectedOpportunity(opp);
     }
   };
+
+  // If standalone pre-verification page is active, render centered card UI directly
+  if (isPreVerificationView) {
+    return (
+      <PreVerificationCard
+        onReturnToApp={() => {
+          setIsPreVerificationView(false);
+          const cleanUrl = window.location.origin + '/';
+          window.history.replaceState({}, document.title, cleanUrl);
+        }}
+        onVerificationComplete={() => {
+          setIsPreVerificationView(false);
+          const cleanUrl = window.location.origin + '/';
+          window.history.replaceState({}, document.title, cleanUrl);
+          setVerificationSuccessModalOpen(true);
+        }}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -230,8 +278,10 @@ function AppContent() {
       {/* Modals */}
       <LoginModal
         isOpen={loginModalOpen}
+        initialRole={authRole}
         onClose={() => setLoginModalOpen(false)}
-        onSwitchToRegister={() => {
+        onSwitchToRegister={(role) => {
+          if (role) setAuthRole(role);
           setLoginModalOpen(false);
           setRegisterModalOpen(true);
         }}
@@ -244,8 +294,10 @@ function AppContent() {
 
       <RegisterModal
         isOpen={registerModalOpen}
+        initialRole={authRole}
         onClose={() => setRegisterModalOpen(false)}
-        onSwitchToLogin={() => {
+        onSwitchToLogin={(role) => {
+          if (role) setAuthRole(role);
           setRegisterModalOpen(false);
           setLoginModalOpen(true);
         }}
@@ -274,6 +326,38 @@ function AppContent() {
         onSuccess={(msg) => addToast(msg, 'success')}
         onOpenLogin={() => setLoginModalOpen(true)}
       />
+
+      {/* Central Post-Verification Success Modal */}
+      <VerificationSuccessModal
+        isOpen={verificationSuccessModalOpen}
+        onClose={() => setVerificationSuccessModalOpen(false)}
+        onSignIn={() => {
+          setVerificationSuccessModalOpen(false);
+          setLoginModalOpen(true);
+        }}
+      />
+
+      {/* Verification Flow Demo & Quick Test Floating Bar */}
+      <div className="fixed bottom-4 left-4 z-40 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-xl border border-slate-200 text-xs text-slate-700">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span className="font-semibold text-slate-800">Email Verification:</span>
+        <button
+          onClick={() => {
+            const demoUrl = '/verify?token=demo_opphub_token_' + Math.random().toString(36).substring(2, 8);
+            window.history.pushState({}, document.title, demoUrl);
+            setIsPreVerificationView(true);
+          }}
+          className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 transition cursor-pointer"
+        >
+          Pre-Verification Page &rarr;
+        </button>
+        <button
+          onClick={() => setVerificationSuccessModalOpen(true)}
+          className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold hover:bg-emerald-100 transition cursor-pointer"
+        >
+          Success Modal
+        </button>
+      </div>
 
       {/* Toast Notification Container */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
