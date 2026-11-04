@@ -30,8 +30,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [signInDropdownOpen, setSignInDropdownOpen] = useState(false);
+  const [registerDropdownOpen, setRegisterDropdownOpen] = useState(false);
 
   const signInDropdownRef = useRef<HTMLDivElement>(null);
+  const registerDropdownRef = useRef<HTMLDivElement>(null);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns when clicking outside
@@ -40,6 +42,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
       const target = event.target as Node;
       if (signInDropdownRef.current && !signInDropdownRef.current.contains(target)) {
         setSignInDropdownOpen(false);
+      }
+      if (registerDropdownRef.current && !registerDropdownRef.current.contains(target)) {
+        setRegisterDropdownOpen(false);
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
         setProfileDropdownOpen(false);
@@ -238,12 +243,72 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                   )}
                 </div>
 
-                <button
-                  onClick={() => onOpenAuth('register')}
-                  className="px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all shadow-indigo-600/20 active:scale-95"
-                >
-                  Create Account
-                </button>
+                {/* Small Professional Create Account Button with Dropdown */}
+                <div className="relative" ref={registerDropdownRef}>
+                  <button
+                    onClick={() => setRegisterDropdownOpen(!registerDropdownOpen)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all shadow-indigo-600/20 active:scale-95"
+                    aria-expanded={registerDropdownOpen}
+                    aria-haspopup="true"
+                  >
+                    <span>Create Account</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-indigo-200 transition-transform duration-150 ${
+                        registerDropdownOpen ? 'rotate-180 text-white' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Compact Dropdown Menu directly below Create Account */}
+                  {registerDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Register Account As
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setRegisterDropdownOpen(false);
+                          onOpenAuth('register', 'company');
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-left transition-colors group cursor-pointer"
+                      >
+                        <span className="text-base select-none">🏢</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 group-hover:text-indigo-700">Company Account</div>
+                          <div className="text-[11px] text-slate-400">Post jobs, internships & hire</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setRegisterDropdownOpen(false);
+                          onOpenAuth('register', 'employee');
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-left transition-colors group cursor-pointer"
+                      >
+                        <span className="text-base select-none">👤</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 group-hover:text-indigo-700">Employee Account</div>
+                          <div className="text-[11px] text-slate-400">Find opportunities & track pipeline</div>
+                        </div>
+                      </button>
+
+                      <div className="border-t border-slate-100 my-1 pt-1.5 px-3 pb-0.5">
+                        <button
+                          onClick={() => {
+                            setRegisterDropdownOpen(false);
+                            onOpenAuth('login');
+                          }}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center justify-between w-full py-0.5 cursor-pointer"
+                        >
+                          <span>Already have account?</span>
+                          <span className="underline">Sign In</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <div className="relative" ref={profileDropdownRef}>
@@ -489,14 +554,29 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                 <span>👤</span>
                 <span>Sign In as Employee</span>
               </button>
+
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1 mt-2">
+                Create Free Account
+              </div>
               <button
                 onClick={() => {
-                  onOpenAuth('register');
+                  onOpenAuth('register', 'company');
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm mt-1"
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-center text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs"
               >
-                Create Account
+                <span>🏢</span>
+                <span>Register as Company</span>
+              </button>
+              <button
+                onClick={() => {
+                  onOpenAuth('register', 'employee');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-center text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
+              >
+                <span>👤</span>
+                <span>Register as Employee</span>
               </button>
             </div>
           )}

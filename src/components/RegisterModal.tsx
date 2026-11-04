@@ -205,38 +205,70 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
             <X className="w-5 h-5" />
           </button>
 
-          {/* Role Toggle Selector */}
-          <div className="mb-6 p-1 bg-slate-100 rounded-2xl flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRole('company');
-                setError(null);
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                isCompany
-                  ? 'bg-white text-indigo-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span className="text-base">🏢</span>
-              <span>Company Account</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveRole('employee');
-                setError(null);
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                !isCompany
-                  ? 'bg-white text-indigo-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span className="text-base">👤</span>
-              <span>Employee Account</span>
-            </button>
+          {/* Account Type Selector Cards */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Select Account Type
+              </span>
+              <span className="text-[11px] font-semibold text-indigo-600">
+                {isCompany ? '🏢 Employer Mode' : '👤 Candidate Mode'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRole('company');
+                  setError(null);
+                }}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between cursor-pointer ${
+                  isCompany
+                    ? 'border-indigo-600 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-600/20'
+                    : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl select-none">🏢</span>
+                  {isCompany ? (
+                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">✓</span>
+                  ) : (
+                    <span className="w-5 h-5 rounded-full border-2 border-slate-300" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-extrabold text-sm text-slate-900">Company</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Post jobs & hire</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveRole('employee');
+                  setError(null);
+                }}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between cursor-pointer ${
+                  !isCompany
+                    ? 'border-indigo-600 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-600/20'
+                    : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl select-none">👤</span>
+                  {!isCompany ? (
+                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">✓</span>
+                  ) : (
+                    <span className="w-5 h-5 rounded-full border-2 border-slate-300" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-extrabold text-sm text-slate-900">Employee</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Find jobs & track</div>
+                </div>
+              </button>
+            </div>
           </div>
 
           {/* Header */}
@@ -245,12 +277,12 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
               {isCompany ? <Building2 className="w-6 h-6 text-indigo-600" /> : <ShieldCheck className="w-6 h-6 text-indigo-600" />}
             </div>
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {isCompany ? 'Register as Company' : 'Create Employee Account'}
+              {isCompany ? 'Register as Company' : 'Register as Employee'}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               {isCompany
-                ? 'Join OpportunityHub to post opportunities, fellowships, and hire top candidates'
-                : 'Join OpportunityHub to discover, track, and bookmark top career opportunities'}
+                ? 'Create a verified company profile to post opportunities, fellowships, and hire talent.'
+                : 'Create a candidate profile to discover, track, and bookmark top career opportunities.'}
             </p>
           </div>
 

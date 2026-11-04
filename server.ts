@@ -12,6 +12,14 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Prevent browser/iframe caching of app source and assets during development
+app.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 /**
  * In-memory secure token store for email verification.
  * In production, this can also sync with Firestore / database.
