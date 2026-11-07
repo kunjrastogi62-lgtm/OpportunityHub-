@@ -6,6 +6,7 @@ export interface UserProfile {
   email: string;
   photoURL?: string | null;
   accountType?: AccountType;
+  isAdmin?: boolean;
   companyName?: string;
   companyWebsite?: string;
   preferredCategories?: string[];

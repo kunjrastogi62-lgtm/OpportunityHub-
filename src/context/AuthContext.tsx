@@ -26,6 +26,7 @@ import { UserProfile, AccountType } from '../types';
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
+  isAdmin: boolean;
   loading: boolean;
   profileLoading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ user: User; profile: UserProfile | null }>;
@@ -49,6 +50,8 @@ interface AuthContextType {
   setIntendedDestination: (dest: string | null) => void;
 }
 
+const SUPER_ADMIN_EMAIL = 'kunjrastogi62@gmail.com';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -57,6 +60,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [profileLoading, setProfileLoading] = useState<boolean>(false);
   const [intendedDestination, setIntendedDestination] = useState<string | null>(null);
+
+  const isAdmin = Boolean(
+    currentUser?.email &&
+    currentUser.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+  );
 
   // Initialize and observe Auth state
   useEffect(() => {
@@ -71,6 +79,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // First attempt a safe getDoc or listen to real-time updates
         try {
+          // If super admin email, guarantee admin document exists in Firestore
+          if (user.email && user.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+            const adminDocRef = doc(db, 'admins', user.uid);
+            setDoc(adminDocRef, {
+              uid: user.uid,
+              email: user.email.toLowerCase(),
+              role: 'admin',
+              updatedAt: new Date().toISOString(),
+            }, { merge: true }).catch((err) => console.warn('Admin record auto-provision note:', err));
+          }
+
           const docSnap = await getDoc(userDocRef);
           if (!docSnap.exists()) {
             // Provision initial user profile if absent (e.g. initial Google sign-in)
@@ -80,6 +99,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               email: user.email || '',
               photoURL: user.photoURL || null,
               accountType: 'employee',
+              isAdmin: user.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase(),
               preferredCategories: ['Internship', 'Full-Time'],
               preferredLocations: ['Remote'],
               createdAt: new Date().toISOString(),
@@ -88,7 +108,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await setDoc(userDocRef, initialProfile);
             setUserProfile(initialProfile);
           } else {
-            setUserProfile(docSnap.data() as UserProfile);
+            const existing = docSnap.data() as UserProfile;
+            if (user.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() && !existing.isAdmin) {
+              existing.isAdmin = true;
+              updateDoc(userDocRef, { isAdmin: true }).catch(() => {});
+            }
+            setUserProfile(existing);
           }
         } catch (err) {
           console.warn('Initial profile fetch warning:', err);
@@ -342,6 +367,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         currentUser,
         userProfile,
+        isAdmin,
         loading,
         profileLoading,
         login,

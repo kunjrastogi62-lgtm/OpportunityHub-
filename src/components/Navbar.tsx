@@ -25,7 +25,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAuth }) => {
-  const { currentUser, userProfile, logout } = useAuth();
+  const { currentUser, userProfile, isAdmin, logout } = useAuth();
   const { savedOpportunities, applications } = useUserData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -330,6 +330,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                   <span className="text-sm font-semibold text-slate-800 max-w-[120px] truncate">
                     {displayName}
                   </span>
+                  {isAdmin && (
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      ADMIN
+                    </span>
+                  )}
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 </button>
 
@@ -343,11 +348,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                           Signed in as
                         </p>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isCompany ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        }`}>
-                          {isCompany ? '🏢 Company' : '👤 Employee'}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {isAdmin && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              👑 Admin
+                            </span>
+                          )}
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isCompany ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                          }`}>
+                            {isCompany ? '🏢 Company' : '👤 Employee'}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
                       <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
@@ -368,6 +380,19 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                     </div>
 
                     <div className="py-1">
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setProfileDropdownOpen(false);
+                            onNavigate('videos');
+                          }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left transition-colors font-bold border-b border-slate-100"
+                        >
+                          <Youtube className="w-4 h-4 text-red-600" />
+                          <span>Admin Video Studio 👑</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => {
                           setProfileDropdownOpen(false);
