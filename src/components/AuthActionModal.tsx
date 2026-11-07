@@ -68,8 +68,12 @@ export const AuthActionModal: React.FC<AuthActionModalProps> = ({ onSuccess, onO
         setError('This verification link is invalid or has already been used.');
       } else if (err?.code === 'auth/expired-action-code') {
         setError('This verification link has expired. Please request a new verification email from your dashboard.');
+      } else if (typeof err?.message === 'string') {
+        setError(err.message);
+      } else if (typeof err?.error === 'string') {
+        setError(err.error);
       } else {
-        setError(err?.message || 'Failed to verify email address.');
+        setError('Verification link is invalid or expired. Please request a new link.');
       }
     } finally {
       setVerifying(false);
