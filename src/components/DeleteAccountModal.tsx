@@ -124,8 +124,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
               {currentUser.email}
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">
-            {userProfile?.accountType === 'company' ? '🏢 Company' : '👤 Employee'}
+          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+            isPrimaryAdmin
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              : 'bg-slate-200 text-slate-700'
+          }`}>
+            {isPrimaryAdmin ? '👑 System Administrator' : userProfile?.accountType === 'company' ? '🏢 Company' : '👤 Employee'}
           </span>
         </div>
 

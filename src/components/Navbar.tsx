@@ -349,16 +349,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, onOpenAu
                           Signed in as
                         </p>
                         <div className="flex items-center gap-1">
-                          {isAdmin && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              👑 Admin
+                          {isAdmin ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              👑 Administrator
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isCompany ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            }`}>
+                              {isCompany ? '🏢 Company' : '👤 Employee'}
                             </span>
                           )}
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            isCompany ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                          }`}>
-                            {isCompany ? '🏢 Company' : '👤 Employee'}
-                          </span>
                         </div>
                       </div>
                       <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>

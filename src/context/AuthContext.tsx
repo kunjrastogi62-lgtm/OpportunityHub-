@@ -70,8 +70,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [intendedDestination, setIntendedDestination] = useState<string | null>(null);
 
   const isAdmin = Boolean(
-    currentUser?.email &&
-    currentUser.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+    (currentUser?.email && currentUser.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) ||
+    userProfile?.isAdmin === true ||
+    userProfile?.accountType === 'admin' ||
+    userProfile?.role === 'admin'
   );
 
   // Initialize and observe Auth state
@@ -84,15 +86,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (user) {
         setProfileLoading(true);
         const userDocRef = doc(db, 'users', user.uid);
+        const isSuperAdmin = Boolean(
+          user.email && user.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+        );
 
         // First attempt a safe getDoc or listen to real-time updates
         try {
           // If super admin email, guarantee admin document exists in Firestore
-          if (user.email && user.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+          if (isSuperAdmin) {
             const adminDocRef = doc(db, 'admins', user.uid);
             setDoc(adminDocRef, {
               uid: user.uid,
-              email: user.email.toLowerCase(),
+              email: user.email!.toLowerCase(),
               role: 'admin',
               updatedAt: new Date().toISOString(),
             }, { merge: true }).catch((err) => console.warn('Admin record auto-provision note:', err));
@@ -103,11 +108,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Provision initial user profile if absent (e.g. initial Google sign-in)
             const initialProfile: UserProfile = {
               uid: user.uid,
-              displayName: user.displayName || user.email?.split('@')[0] || 'User',
+              displayName: isSuperAdmin ? 'Admin' : (user.displayName || user.email?.split('@')[0] || 'User'),
               email: user.email || '',
               photoURL: user.photoURL || null,
-              accountType: 'employee',
-              isAdmin: user.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase(),
+              accountType: isSuperAdmin ? 'admin' : 'employee',
+              isAdmin: isSuperAdmin,
+              role: isSuperAdmin ? 'admin' : 'employee',
               preferredCategories: ['Internship', 'Full-Time'],
               preferredLocations: ['Remote'],
               createdAt: new Date().toISOString(),
@@ -117,9 +123,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUserProfile(initialProfile);
           } else {
             const existing = docSnap.data() as UserProfile;
-            if (user.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() && !existing.isAdmin) {
+            if (isSuperAdmin) {
               existing.isAdmin = true;
-              updateDoc(userDocRef, { isAdmin: true }).catch(() => {});
+              existing.role = 'admin';
+              if (existing.accountType !== 'company') {
+                existing.accountType = 'admin';
+              }
+              updateDoc(userDocRef, {
+                isAdmin: true,
+                role: 'admin',
+                ...(existing.accountType !== 'company' ? { accountType: 'admin' } : {}),
+                updatedAt: new Date().toISOString(),
+              }).catch(() => {});
             }
             setUserProfile(existing);
           }
@@ -132,7 +147,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           userDocRef,
           (snapshot) => {
             if (snapshot.exists()) {
-              setUserProfile(snapshot.data() as UserProfile);
+              const data = snapshot.data() as UserProfile;
+              if (user.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+                data.isAdmin = true;
+                data.role = 'admin';
+                if (data.accountType !== 'company') {
+                  data.accountType = 'admin';
+                }
+              }
+              setUserProfile(data);
             }
             setProfileLoading(false);
           },
@@ -173,6 +196,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         profile = docSnap.data() as UserProfile;
+        if (user.email && user.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+          profile.isAdmin = true;
+          profile.role = 'admin';
+          if (profile.accountType !== 'company') {
+            profile.accountType = 'admin';
+          }
+        }
         setUserProfile(profile);
       }
     } catch (e) {

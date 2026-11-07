@@ -16,7 +16,7 @@ import { PreVerificationCard } from './components/PreVerificationCard';
 import { VerificationSuccessModal } from './components/VerificationSuccessModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { SAMPLE_OPPORTUNITIES } from './data/opportunities';
-import { Opportunity } from './types';
+import { Opportunity, AccountType } from './types';
 import { Loader2, ShieldCheck, Compass, Sparkles, Heart, CheckCircle2 } from 'lucide-react';
 
 function AppContent() {
@@ -50,7 +50,7 @@ function AppContent() {
   }, []);
 
   // Modals state
-  const [authRole, setAuthRole] = useState<'company' | 'employee'>('employee');
+  const [authRole, setAuthRole] = useState<AccountType>('employee');
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
@@ -112,7 +112,7 @@ function AppContent() {
     setCurrentTab('explore');
   };
 
-  const handleOpenAuth = (mode: 'login' | 'register', role?: 'company' | 'employee') => {
+  const handleOpenAuth = (mode: 'login' | 'register', role?: AccountType) => {
     if (role) {
       setAuthRole(role);
     }
@@ -128,7 +128,7 @@ function AppContent() {
   };
 
   // Handle successful login or registration with role-based redirection
-  const handleAuthSuccess = (msg: string, role?: 'company' | 'employee') => {
+  const handleAuthSuccess = (msg: string, role?: AccountType) => {
     addToast(msg, 'success');
     setCurrentTab('dashboard');
     if (role === 'company') {

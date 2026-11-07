@@ -101,7 +101,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectOpportunityForDetails,
   onToast,
 }) => {
-  const { currentUser, userProfile, updatePreferences, updateDisplayName, updateCompanyProfile, logout } = useAuth();
+  const { currentUser, userProfile, isAdmin, updatePreferences, updateDisplayName, updateCompanyProfile, logout } = useAuth();
   const {
     savedOpportunities,
     applications,
@@ -112,6 +112,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   } = useUserData();
 
   const isCompany = userProfile?.accountType === 'company';
+  const isEffectiveAdmin = Boolean(
+    isAdmin ||
+    userProfile?.isAdmin === true ||
+    userProfile?.accountType === 'admin' ||
+    userProfile?.role === 'admin' ||
+    (currentUser?.email && currentUser.email.trim().toLowerCase() === 'kunjrastogi62@gmail.com')
+  );
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'saved' | 'applications' | 'preferences' | 'settings' | 'post' | 'listings' | 'applicants'
@@ -451,11 +458,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h1>
 
               <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                isCompany
+                isEffectiveAdmin
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold'
+                  : isCompany
                   ? 'bg-amber-50 text-amber-800 border border-amber-200'
                   : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
               }`}>
-                {isCompany ? '🏢 Company Account' : '👤 Employee Account'}
+                {isEffectiveAdmin ? '👑 System Administrator' : isCompany ? '🏢 Company Account' : '👤 Employee Account'}
               </span>
 
               {currentUser.emailVerified ? (
@@ -1094,15 +1103,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Role</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">Account Role</label>
+                    {isEffectiveAdmin && (
+                      <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                        Admin Privileges Active
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     disabled
-                    value="🏢 Verified Company Account"
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                    value={
+                      isEffectiveAdmin
+                        ? '👑 System Administrator'
+                        : '🏢 Verified Company Account'
+                    }
+                    className={`w-full px-3.5 py-2 text-sm rounded-xl border ${
+                      isEffectiveAdmin
+                        ? 'border-emerald-300 bg-emerald-50/80 text-emerald-950 font-bold'
+                        : 'border-slate-200 bg-slate-50 text-slate-500'
+                    } cursor-not-allowed`}
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Role is permanently bound to your account and enforced by Firebase Security Rules.
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {isEffectiveAdmin
+                      ? 'You have primary administrative governance over Cloud Firestore, YouTube Video Resources, and system settings.'
+                      : 'Role is permanently bound to your account and enforced by Firebase Security Rules.'}
                   </p>
                 </div>
 
@@ -1132,8 +1158,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <Trash2 className="w-5 h-5 text-rose-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Delete Account</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <h4 className="text-sm font-extrabold text-rose-950">Permanently Delete Account</h4>
+                      <p className="text-xs text-rose-800/90 mt-0.5">
                         Permanently delete your account and all associated data.
                       </p>
                     </div>
@@ -1142,10 +1168,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setDeleteAccountModalOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold transition shadow-sm shadow-rose-600/25 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span>Delete Account</span>
+                    <span>Permanently Delete Account</span>
                   </button>
                 </div>
               </div>
@@ -1564,15 +1590,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Role</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">Account Role</label>
+                    {isEffectiveAdmin ? (
+                      <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                        Admin Privileges Active
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        Employee
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     disabled
-                    value="👤 Employee Account"
-                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                    value={
+                      isEffectiveAdmin
+                        ? '👑 System Administrator'
+                        : '👤 Employee Account'
+                    }
+                    className={`w-full px-3.5 py-2 text-sm rounded-xl border ${
+                      isEffectiveAdmin
+                        ? 'border-emerald-300 bg-emerald-50/80 text-emerald-950 font-bold'
+                        : 'border-slate-200 bg-slate-50 text-slate-500'
+                    } cursor-not-allowed`}
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Role is permanently bound to your account and enforced by Firebase Security Rules.
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {isEffectiveAdmin
+                      ? 'You have primary administrative governance over Cloud Firestore, YouTube Video Resources, and system settings.'
+                      : 'Role is permanently bound to your account and enforced by Firebase Security Rules.'}
                   </p>
                 </div>
 
@@ -1587,23 +1634,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </form>
 
-              {/* Account Management Section */}
-              <div className="mt-8 pt-6 border-t border-slate-200">
-                <div className="mb-4">
+              {/* Account Management: Permanently Delete Account Section */}
+              <div className="mt-8 pt-6 border-t-2 border-slate-100">
+                <div className="mb-3">
                   <h3 className="text-base font-bold text-slate-900">Account Management</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Manage critical account actions, security controls, and personal data lifecycle.
+                    Security actions, danger zone controls, and data lifecycle.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="p-4 sm:p-5 rounded-2xl border border-rose-200 bg-rose-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-xs">
                       <Trash2 className="w-5 h-5 text-rose-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Delete Account</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <h4 className="text-sm font-extrabold text-rose-950">Permanently Delete Account</h4>
+                      <p className="text-xs text-rose-800/90 mt-0.5">
                         Permanently delete your account and all associated data.
                       </p>
                     </div>
@@ -1612,10 +1659,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setDeleteAccountModalOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold transition shadow-sm shadow-rose-600/25 shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span>Delete Account</span>
+                    <span>Permanently Delete Account</span>
                   </button>
                 </div>
               </div>

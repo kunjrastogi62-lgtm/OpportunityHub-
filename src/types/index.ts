@@ -1,4 +1,4 @@
-export type AccountType = 'company' | 'employee';
+export type AccountType = 'company' | 'employee' | 'admin';
 
 export interface UserProfile {
   uid: string;
@@ -7,6 +7,7 @@ export interface UserProfile {
   photoURL?: string | null;
   accountType?: AccountType;
   isAdmin?: boolean;
+  role?: 'admin' | 'company' | 'employee' | string;
   companyName?: string;
   companyWebsite?: string;
   preferredCategories?: string[];
