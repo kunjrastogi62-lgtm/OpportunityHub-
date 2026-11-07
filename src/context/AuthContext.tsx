@@ -12,6 +12,10 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  deleteUser,
 } from 'firebase/auth';
 import {
   doc,
@@ -19,6 +23,9 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
+  collection,
+  getDocs,
+  deleteDoc,
 } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, AccountType } from '../types';
@@ -40,6 +47,7 @@ interface AuthContextType {
   ) => Promise<UserProfile>;
   loginWithGoogle: (preferredRole?: AccountType) => Promise<UserProfile | null>;
   logout: () => Promise<void>;
+  deleteAccount: (password?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   reloadUser: () => Promise<boolean>;
@@ -272,6 +280,86 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUserProfile(null);
   };
 
+  // Permanently Delete Account with Re-authentication & Cascade Deletion
+  const deleteAccount = async (password?: string): Promise<void> => {
+    if (!auth.currentUser) {
+      throw new Error('No active user session found. Please sign in again.');
+    }
+
+    const user = auth.currentUser;
+    const userEmail = (user.email || '').trim().toLowerCase();
+
+    // 1. Role-based protection: Never allow primary/last super admin to be deleted
+    if (userEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
+      throw new Error(
+        'Action Prohibited: The primary system administrator account (kunjrastogi62@gmail.com) cannot be deleted to ensure platform security and continuity.'
+      );
+    }
+
+    // 2. Extra Security: Re-authenticate identity prior to destructive deletion
+    const isGoogleAuth = user.providerData.some((p) => p.providerId === 'google.com');
+
+    if (isGoogleAuth) {
+      // Re-authenticate via Google popup
+      await reauthenticateWithPopup(user, googleProvider);
+    } else {
+      // Re-authenticate via Password
+      if (!password || !password.trim()) {
+        throw new Error('Please enter your account password to confirm identity.');
+      }
+      const credential = EmailAuthProvider.credential(user.email!, password.trim());
+      await reauthenticateWithCredential(user, credential);
+    }
+
+    const uid = user.uid;
+
+    // 3. Cascade delete user data from Firestore
+    try {
+      // Delete saved_opportunities subcollection
+      const savedColRef = collection(db, 'users', uid, 'saved_opportunities');
+      const savedSnap = await getDocs(savedColRef).catch(() => null);
+      if (savedSnap && !savedSnap.empty) {
+        const deletePromises = savedSnap.docs.map((d) => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
+      }
+
+      // Delete applications subcollection
+      const appsColRef = collection(db, 'users', uid, 'applications');
+      const appsSnap = await getDocs(appsColRef).catch(() => null);
+      if (appsSnap && !appsSnap.empty) {
+        const deletePromises = appsSnap.docs.map((d) => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
+      }
+
+      // Remove from admins collection if present (non-super-admin)
+      try {
+        await deleteDoc(doc(db, 'admins', uid));
+      } catch (_) {}
+
+      // Delete primary user profile document
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (dbErr) {
+      console.warn('Firestore user data deletion warning:', dbErr);
+      handleFirestoreError(dbErr, OperationType.DELETE, `users/${uid}`);
+    }
+
+    // 4. Clean up server-side verification tokens or session cache
+    try {
+      await fetch('/api/delete-user-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, uid }),
+      });
+    } catch (_) {}
+
+    // 5. Permanently delete Firebase Authentication user
+    await deleteUser(user);
+
+    // 6. Reset local application state
+    setCurrentUser(null);
+    setUserProfile(null);
+  };
+
   // Password Reset
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
@@ -374,6 +462,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         register,
         loginWithGoogle,
         logout,
+        deleteAccount,
         resetPassword,
         resendVerificationEmail,
         reloadUser,

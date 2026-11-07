@@ -121,7 +121,8 @@ service cloud.firestore {
                     incoming().uid == existing().uid &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'companyName', 'companyWebsite', 'preferredCategories', 'preferredLocations', 'updatedAt']);
                     
-      allow delete: if false;
+      // Users can delete their own account profile, provided it is not the primary super administrator
+      allow delete: if isOwner(userId) && isValidId(userId) && request.auth.token.email != 'kunjrastogi62@gmail.com';
 
       // Subcollection: Saved Opportunities
       match /saved_opportunities/{opportunityId} {

@@ -35,6 +35,8 @@ import { useAuth } from '../context/AuthContext';
 import { useUserData } from '../context/UserDataContext';
 import { ApplicationTrackerItem } from '../types';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
+import { DeleteAccountModal } from './DeleteAccountModal';
+import { AccountDeletedSuccessModal } from './AccountDeletedSuccessModal';
 
 const AVAILABLE_CATEGORIES = [
   'Internship',
@@ -162,6 +164,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Candidate Editing notes state
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editingNotesText, setEditingNotesText] = useState('');
+
+  // Account Management & Deletion Modal State
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [accountDeletedModalOpen, setAccountDeletedModalOpen] = useState(false);
 
   // Company Postings and Applicants state
   const [companyPostings, setCompanyPostings] = useState<CompanyPosting[]>([
@@ -1110,6 +1116,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </button>
                 </div>
               </form>
+
+              {/* Account Management Section */}
+              <div className="mt-8 pt-6 border-t border-slate-200">
+                <div className="mb-4">
+                  <h3 className="text-base font-bold text-slate-900">Account Management</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Manage critical account actions, security controls, and company profile lifecycle.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-5 h-5 text-rose-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Delete Account</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Permanently delete your account and all associated data.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteAccountModalOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Account</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -1547,6 +1586,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </button>
                 </div>
               </form>
+
+              {/* Account Management Section */}
+              <div className="mt-8 pt-6 border-t border-slate-200">
+                <div className="mb-4">
+                  <h3 className="text-base font-bold text-slate-900">Account Management</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Manage critical account actions, security controls, and personal data lifecycle.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-5 h-5 text-rose-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Delete Account</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Permanently delete your account and all associated data.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteAccountModalOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Account</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -1642,6 +1714,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Account Confirmation Modal */}
+      <DeleteAccountModal
+        isOpen={deleteAccountModalOpen}
+        onClose={() => setDeleteAccountModalOpen(false)}
+        onDeletedSuccess={() => {
+          setDeleteAccountModalOpen(false);
+          setAccountDeletedModalOpen(true);
+        }}
+      />
+
+      {/* Post-Deletion Success State Modal */}
+      <AccountDeletedSuccessModal
+        isOpen={accountDeletedModalOpen}
+        onReturnHome={() => {
+          setAccountDeletedModalOpen(false);
+          onNavigateToExplore();
+          window.location.href = '/';
+        }}
+      />
     </div>
   );
 };

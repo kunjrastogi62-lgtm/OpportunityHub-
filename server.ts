@@ -224,6 +224,29 @@ app.post('/api/verify-email', (req, res) => {
 });
 
 /**
+ * API: Clean up server-side data upon account deletion
+ * POST /api/delete-user-data
+ * Body: { email?: string, uid?: string }
+ */
+app.post('/api/delete-user-data', (req, res) => {
+  const { email } = req.body;
+  if (email && typeof email === 'string') {
+    const cleanEmail = email.trim().toLowerCase();
+    // Invalidate and purge any outstanding verification tokens for this user
+    for (const [token, record] of tokenStore.entries()) {
+      if (record.email === cleanEmail) {
+        tokenStore.delete(token);
+      }
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: 'User data and active tokens purged successfully from server cache.',
+  });
+});
+
+/**
  * Mount Vite in dev mode or serve static files in production
  */
 async function startServer() {
